@@ -90,18 +90,30 @@ def notify() -> None:
     lines = [f"{i + 1}. {c['streamer']} – {c['views']:,} Aufrufe".replace(",", ".")
              for i, c in enumerate(new)]
     body = "\n".join(lines) + "\n\nAntippen → Clip-Seite öffnen → speichern & Beschreibung kopieren"
-    try:
-        r = requests.post(f"https://ntfy.sh/{topic}", data=body.encode("utf-8"), timeout=30,
-                          params={"title": f"{test}🎬 {len(new)} neue Clips bereit",
-                                  "click": page, "tags": "movie_camera",
-                                  "actions": f"view, Clips öffnen, {page}"})
-        if r.ok:
-            _summary(f"✅ Push gesendet. Clip-Seite: {page}")
-        else:
-            _summary(f"❌ Push fehlgeschlagen (HTTP {r.status_code}: {r.text.strip()[:200]})"
-                     .replace(topic, "***"))
-    except Exception as e:
-        _summary(f"❌ Push fehlgeschlagen ({type(e).__name__})")
+    title = f"{test}🎬 {len(new)} neue Clips bereit"
+    # Mehrere Varianten: falls ntfy eine ablehnt, geht die nächste, einfachere raus.
+    variants = [
+        {"title": title, "click": page, "tags": "movie_camera",
+         "actions": f"view, Clips öffnen, {page}"},
+        {"title": title, "click": page, "tags": "movie_camera"},
+        {"title": title},
+    ]
+    errors = []
+    for params in variants:
+        data = body if "click" in params else body + "\n" + page
+        try:
+            r = requests.post(f"https://ntfy.sh/{topic}", data=data.encode("utf-8"),
+                              params=params, timeout=30)
+            if r.ok:
+                _summary(f"✅ Push gesendet. Clip-Seite: {page}")
+                if errors:
+                    _summary("Hinweis – vorherige Versuche: " + "; ".join(errors))
+                return
+            errors.append(f"HTTP {r.status_code}: {r.text.strip()[:200]}".replace(topic, "***"))
+        except Exception as e:
+            errors.append(type(e).__name__)
+    _summary("❌ **Push fehlgeschlagen:** " + "; ".join(errors))
+    sys.exit(1)
 
 
 if __name__ == "__main__":
