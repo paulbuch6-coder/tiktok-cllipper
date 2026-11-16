@@ -53,6 +53,12 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | `TIKTOK_CLIENT_KEY` | aus Schritt 3 |
 | `TIKTOK_CLIENT_SECRET` | aus Schritt 3 |
 | `GH_PAT` | aus Schritt 4 |
+| `NTFY_TOPIC` | *(optional)* geheimer Kanalname für Push-Nachrichten, siehe unten |
+
+**Push-Nachrichten aufs Handy (empfohlen im Inbox-Modus):** Installiere die kostenlose App **ntfy**
+(Android/iOS), tippe auf **„+“** und abonniere einen langen, zufälligen Namen, z. B. `clipper-x7k29qpl4m`.
+Denselben Namen trägst du als Secret `NTFY_TOPIC` ein. Zu jedem Clip kommt dann eine Nachricht mit der
+fertigen Beschreibung zum Kopieren und der Sekunde fürs Titelbild.
 
 ### 6. TikTok verbinden (einmalig)
 Öffne diesen Link am Handy. Vorher `CLIENT_KEY`, `DEINNAME` und `REPONAME` ersetzen:
