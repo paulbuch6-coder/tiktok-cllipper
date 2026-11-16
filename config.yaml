@@ -66,6 +66,9 @@ max_duration: 60
 max_output_seconds: 40   # länger wird um den Höhepunkt herum gekürzt (15-35 s laufen am besten)
 max_start_trim: 4        # so viele Sekunden Leerlauf am Anfang dürfen max. weg
 
+# Postzeitpunkte (deutsche Zeit). Zu diesen Uhrzeiten kommen neue Clips.
+post_hours: [11, 13, 15, 17, 19, 21]
+
 # Wie viele Clips pro Lauf geschickt werden (zur Auswahl, je ein anderer Streamer).
 # Du postest davon nur den stärksten.
 clips_per_run: 3

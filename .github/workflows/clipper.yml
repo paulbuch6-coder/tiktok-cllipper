@@ -2,13 +2,18 @@ name: TikTok Clipper
 
 on:
   schedule:
-    # 6 Läufe am Tag zu den besten Zeiten (deutsche Winterzeit = UTC+1):
-    # 11:17, 13:17, 15:17, 17:17, 19:17, 21:17 Uhr. Nachts Pause.
-    - cron: "17 10-20/2 * * *"
+    # Alle 20 Minuten kurz anklopfen (GitHub lässt geplante Läufe oft ausfallen).
+    # Ob wirklich ein Lauf fällig ist, entscheidet der "gate"-Job anhand von
+    # post_hours in config.yaml (deutsche Zeit). Nachts passiert nichts.
+    - cron: "7,27,47 8-21 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Nur Video erstellen (nicht posten) – Ergebnis unter 'Artifacts'"
+        description: "Nur Video erstellen (nicht posten)"
+        type: boolean
+        default: false
+      gated:
+        description: "Nur laufen, wenn ein Postzeitpunkt fällig ist (für externe Wecker)"
         type: boolean
         default: false
 
@@ -22,7 +27,29 @@ permissions:
   id-token: write
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            clipper
+            state
+            config.yaml
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.gated }}" != "true" ]; then
+            echo "Per Hand gestartet – läuft immer."; echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            pip install -q pyyaml && python -m clipper.gate
+          fi
+
   clip:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment:
@@ -113,7 +140,7 @@ jobs:
         run: |
           git config user.name "clipper-bot"
           git config user.email "clipper-bot@users.noreply.github.com"
-          git add state/posted.json 2>/dev/null || true
+          git add state/ 2>/dev/null || true
           git diff --cached --quiet && exit 0
           git commit -m "state: gepostete Clips"
           for i in 1 2 3 4; do

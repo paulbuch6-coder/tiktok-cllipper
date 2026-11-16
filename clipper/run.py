@@ -331,6 +331,9 @@ def main() -> None:
         print("Beschreibung:", build_caption(cfg, fake, title))
         return
 
+    if not args.dry_run:
+        from .gate import mark_run
+        mark_run()  # Zeitpunkt gilt als erledigt, auch wenn kein Clip gefunden wird
     state = load_state()
     candidates = find_candidates(cfg, state)
     if not candidates:
