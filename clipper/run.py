@@ -120,10 +120,9 @@ def build_caption(cfg: dict, clip: dict, title: str) -> str:
     return " ".join(parts).replace(" |  ", " | ").replace("  ", " ")[:2200]
 
 
-def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str) -> None:
+def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
+           mp4: Path | None = None) -> None:
     """Push aufs Handy (ntfy) + Zusammenfassung im GitHub-Lauf."""
-    msg = (f"{caption}\n\n🖼 Titelbild: Sekunde {cover_ms / 1000:.1f}\n"
-           f"🎥 Quelle: {clip['url']}")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
@@ -131,14 +130,37 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str) -> Non
                     f"**Beschreibung (kopieren):**\n```\n{caption}\n```\n"
                     f"Titelbild: Sekunde {cover_ms / 1000:.1f} · Quelle: {clip['url']}\n\n")
     topic = os.environ.get("NTFY_TOPIC")
-    if topic:
-        title = ("Neuer Clip in deiner TikTok-Inbox – Beschreibung kopieren"
-                 if mode == "inbox" else "Clip gepostet ✅")
-        try:
-            requests.post(f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), timeout=15,
-                          headers={"Title": title.encode("utf-8"), "Tags": "movie_camera"})
-        except requests.RequestException as e:
-            print("ntfy fehlgeschlagen:", e)
+    if not topic:
+        print("Kein NTFY_TOPIC gesetzt – keine Handy-Benachrichtigung.")
+        return
+    url = f"https://ntfy.sh/{topic}"
+    streamer = clip["broadcaster_name"]
+    try:
+        if mode == "manual" and mp4 and mp4.stat().st_size < 15 * 1024 * 1024:
+            # 1) Video als Anhang
+            with open(mp4, "rb") as f:
+                r = requests.put(url, data=f, timeout=120, params={
+                    "filename": f"{streamer}_{clip['id'][:20]}.mp4",
+                    "title": f"🎬 Neuer Clip: {streamer} ({clip['view_count']} Aufrufe)",
+                    "message": (f"Video herunterladen → in TikTok hochladen.\n"
+                                f"Titelbild: Sekunde {cover_ms / 1000:.1f}. "
+                                f"Beschreibung kommt in der nächsten Nachricht."),
+                    "tags": "movie_camera"})
+                r.raise_for_status()
+        else:
+            run = os.environ.get("GITHUB_RUN_ID")
+            repo = os.environ.get("GITHUB_REPOSITORY")
+            link = f"https://github.com/{repo}/actions/runs/{run}" if run and repo else ""
+            title = {"manual": f"🎬 Neuer Clip: {streamer} (Download im GitHub-Lauf)",
+                     "inbox": f"📥 Clip in deiner TikTok-Inbox: {streamer}",
+                     "direct": f"✅ Clip gepostet: {streamer}"}.get(mode, f"🧪 Testclip: {streamer}")
+            requests.post(url, timeout=30, params={"title": title, "click": link},
+                          data=f"Titelbild: Sekunde {cover_ms / 1000:.1f}\n{link}".encode())
+        # 2) Beschreibung als eigene Nachricht -> lange drücken = kopieren
+        requests.post(url, data=caption.encode("utf-8"), timeout=30,
+                      params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
+    except requests.RequestException as e:
+        print("ntfy fehlgeschlagen:", e)
 
 
 def produce(cfg: dict, src: Path, clip: dict, language: str | None,
@@ -185,8 +207,9 @@ def main() -> None:
         print("Kein neuer passender Clip. Ende.")
         return
 
+    mode = "dry-run" if args.dry_run else cfg.get("tiktok_mode", "manual")
     token = None
-    if not args.dry_run:
+    if mode in ("inbox", "direct"):
         from . import tiktok
         token, new_refresh = tiktok.refresh_access_token()
         if new_refresh != os.environ.get("TIKTOK_REFRESH_TOKEN"):
@@ -205,11 +228,10 @@ def main() -> None:
             mp4, title, cover_ms = produce(cfg, src, clip, clip.get("language"), clip["id"])
             caption = build_caption(cfg, clip, title)
             print("Beschreibung:", caption)
-            if not args.dry_run:
+            if mode in ("inbox", "direct"):
                 from . import tiktok
-                tiktok.upload(token, mp4, caption, cfg["tiktok_mode"], cfg["privacy_level"],
-                              cover_ms)
-            notify(cfg, caption, cover_ms, clip, "dry-run" if args.dry_run else cfg["tiktok_mode"])
+                tiktok.upload(token, mp4, caption, mode, cfg["privacy_level"], cover_ms)
+            notify(cfg, caption, cover_ms, clip, mode, mp4)
             state.append({"id": clip["id"], "broadcaster": clip["broadcaster_name"].lower(),
                           "posted_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                           "url": clip["url"], "dry_run": args.dry_run})

@@ -140,7 +140,7 @@ def render(src: Path, ass: Path | None, out: Path) -> Path:
     cmd = [
         "ffmpeg", "-y", "-v", "error", "-i", str(src),
         "-filter_complex", vf, "-map", "[v]", "-map", "0:a?",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-maxrate", "1700k", "-bufsize", "3400k", "-pix_fmt", "yuv420p",
         "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out),
     ]
     subprocess.run(cmd, check=True)

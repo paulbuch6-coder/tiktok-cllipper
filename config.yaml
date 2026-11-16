@@ -36,10 +36,12 @@ clips_per_run: 1
 max_per_streamer_per_day: 2
 
 # TikTok-Modus:
+#   "manual" = Video + Beschreibung kommen per Push (ntfy) aufs Handy, du lädst selbst hoch.
+#              Braucht KEINE TikTok-Developer-App.  <- aktuell aktiv
 #   "inbox"  = Clip landet als Entwurf in deiner TikTok-App -> du tippst auf Posten
 #              (funktioniert sofort, ohne TikTok-App-Prüfung)
 #   "direct" = wird direkt veröffentlicht (öffentlich erst nach TikTok-App-Prüfung)
-tiktok_mode: "inbox"
+tiktok_mode: "manual"
 
 # Sichtbarkeit bei "direct": PUBLIC_TO_EVERYONE (nach Prüfung) oder SELF_ONLY (vor Prüfung)
 privacy_level: "SELF_ONLY"
