@@ -219,7 +219,7 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
                     "title": f"{prefix}Neuer Clip: {streamer} ({clip['view_count']} Aufrufe)",
                     "message": f"Video herunterladen → in TikTok hochladen. "
                                f"Titelbild: Sekunde {cover_ms / 1000:.1f}.",
-                    "tags": "movie_camera", "click": link})
+                    "tags": "movie_camera"})
             if r.ok:
                 ok_video = True
             else:
