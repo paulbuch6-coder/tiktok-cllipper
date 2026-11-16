@@ -150,56 +150,103 @@ def build_caption(cfg: dict, clip: dict, title: str) -> str:
     return " ".join(parts).replace(" |  ", " | ").replace("  ", " ")[:2200]
 
 
+def _clean_topic(raw: str) -> str:
+    """Kanalname aus dem Secret: Leerzeichen/Zeilenumbrüche weg, ganze URL erlaubt."""
+    t = raw.strip().strip("/")
+    if "/" in t:  # z. B. "https://ntfy.sh/meinkanal" eingefügt
+        t = t.rsplit("/", 1)[-1]
+    return t
+
+
 def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
            mp4: Path | None = None) -> None:
     """Push aufs Handy (ntfy) + Zusammenfassung im GitHub-Lauf."""
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
+
+    def note(text: str) -> None:
+        print(text)
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(f"> {text}\n\n")
+
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
             f.write(f"### {clip['broadcaster_name']} – {clip['view_count']} Aufrufe\n\n"
                     f"**Beschreibung (kopieren):**\n```\n{caption}\n```\n"
                     f"Titelbild: Sekunde {cover_ms / 1000:.1f} · Quelle: {clip['url']}\n\n")
-    topic = os.environ.get("NTFY_TOPIC")
+    topic = _clean_topic(os.environ.get("NTFY_TOPIC") or "")
     if not topic:
-        print("⚠️ Kein NTFY_TOPIC gesetzt – KEINE Handy-Benachrichtigung!")
-        if summary:
-            with open(summary, "a", encoding="utf-8") as f:
-                f.write("> ⚠️ **Keine Push-Nachricht gesendet:** Secret `NTFY_TOPIC` fehlt.\n\n")
+        note("⚠️ **Keine Push-Nachricht gesendet:** Secret `NTFY_TOPIC` fehlt.")
         return
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", topic):
+        note("⚠️ **Keine Push-Nachricht gesendet:** Der Kanalname in `NTFY_TOPIC` enthält "
+             "ungültige Zeichen. Erlaubt sind nur Buchstaben, Zahlen, `-` und `_` (max. 64).")
+        return
+
     url = f"https://ntfy.sh/{topic}"
     streamer = clip["broadcaster_name"]
-    try:
-        if mode in ("manual", "dry-run") and mp4 and mp4.stat().st_size < 15 * 1024 * 1024:
-            # 1) Video als Anhang
-            with open(mp4, "rb") as f:
-                r = requests.put(url, data=f, timeout=120, params={
-                    "filename": f"{streamer}_{clip['id'][:20]}.mp4",
-                    "title": (f"🧪 TEST – " if mode == "dry-run" else "🎬 ")
-                             + f"Neuer Clip: {streamer} ({clip['view_count']} Aufrufe)",
-                    "message": (f"Video herunterladen → in TikTok hochladen.\n"
-                                f"Titelbild: Sekunde {cover_ms / 1000:.1f}. "
-                                f"Beschreibung kommt in der nächsten Nachricht."),
-                    "tags": "movie_camera"})
-                r.raise_for_status()
+    run, repo = os.environ.get("GITHUB_RUN_ID"), os.environ.get("GITHUB_REPOSITORY")
+    link = f"https://github.com/{repo}/actions/runs/{run}" if run and repo else ""
+    prefix = "🧪 TEST – " if mode == "dry-run" else "🎬 "
+    ok_video = ok_text = False
+    errors = []
+
+    def err(what: str, e: Exception, r=None) -> None:
+        detail = ""
+        if r is not None:
+            detail = f" (HTTP {r.status_code}: {r.text.strip()[:200]})"
+        elif isinstance(e, requests.RequestException) and e.response is not None:
+            detail = f" (HTTP {e.response.status_code}: {e.response.text.strip()[:200]})"
         else:
-            run = os.environ.get("GITHUB_RUN_ID")
-            repo = os.environ.get("GITHUB_REPOSITORY")
-            link = f"https://github.com/{repo}/actions/runs/{run}" if run and repo else ""
-            title = {"manual": f"🎬 Neuer Clip: {streamer} (Download im GitHub-Lauf)",
-                     "inbox": f"📥 Clip in deiner TikTok-Inbox: {streamer}",
-                     "direct": f"✅ Clip gepostet: {streamer}"}.get(mode, f"🧪 Testclip: {streamer}")
-            requests.post(url, timeout=30, params={"title": title, "click": link},
-                          data=f"Titelbild: Sekunde {cover_ms / 1000:.1f}\n{link}".encode())
-        # 2) Beschreibung als eigene Nachricht -> lange drücken = kopieren
-        r2 = requests.post(url, data=caption.encode("utf-8"), timeout=30,
-                           params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
-        r2.raise_for_status()
-        print(f"✅ Push-Nachrichten an ntfy gesendet")
-        if summary:
-            with open(summary, "a", encoding="utf-8") as f:
-                f.write(f"> ✅ Push-Nachrichten an ntfy gesendet.\n\n")
-    except requests.RequestException as e:
-        print("ntfy fehlgeschlagen:", e)
+            detail = f" ({type(e).__name__})"
+        errors.append(what + detail.replace(topic, "***"))
+
+    # 1) Video als Anhang
+    if mode in ("manual", "dry-run") and mp4 and mp4.stat().st_size < 15 * 1024 * 1024:
+        try:
+            with open(mp4, "rb") as f:
+                r = requests.put(url, data=f, timeout=180, params={
+                    "filename": f"{streamer}_{clip['id'][:20]}.mp4",
+                    "title": f"{prefix}Neuer Clip: {streamer} ({clip['view_count']} Aufrufe)",
+                    "message": f"Video herunterladen → in TikTok hochladen. "
+                               f"Titelbild: Sekunde {cover_ms / 1000:.1f}.",
+                    "tags": "movie_camera", "click": link})
+            if r.ok:
+                ok_video = True
+            else:
+                err("Video-Anhang", None, r)
+        except Exception as e:
+            err("Video-Anhang", e)
+
+    # 1b) Fallback: Nachricht mit Link zum Download auf GitHub
+    if not ok_video:
+        try:
+            r = requests.post(url, timeout=30, data=(
+                f"Video im GitHub-Lauf unter 'Artifacts' herunterladen:\n{link}\n"
+                f"Titelbild: Sekunde {cover_ms / 1000:.1f}").encode("utf-8"),
+                params={"title": f"{prefix}Neuer Clip: {streamer}", "click": link,
+                        "tags": "movie_camera"})
+            if not r.ok:
+                err("Hinweis-Nachricht", None, r)
+        except Exception as e:
+            err("Hinweis-Nachricht", e)
+
+    # 2) Beschreibung als eigene Nachricht -> lange drücken = kopieren
+    try:
+        r = requests.post(url, data=caption.encode("utf-8"), timeout=30,
+                          params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
+        ok_text = r.ok
+        if not r.ok:
+            err("Beschreibung", None, r)
+    except Exception as e:
+        err("Beschreibung", e)
+
+    if ok_video and ok_text:
+        note("✅ Push-Nachrichten an ntfy gesendet (Video + Beschreibung).")
+    elif ok_text:
+        note("🟡 Beschreibung gesendet, Video nur als Link. Fehler: " + "; ".join(errors))
+    else:
+        note("❌ **Push an ntfy fehlgeschlagen:** " + "; ".join(errors))
 
 
 def produce(cfg: dict, src: Path, clip: dict, language: str | None,
