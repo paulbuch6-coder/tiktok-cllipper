@@ -20,7 +20,7 @@ Alle Einstellungen stehen in [`config.yaml`](config.yaml) und lassen sich im Bro
 - **Öffentlich** = unbegrenzt viele kostenlose Actions-Minuten (die Secrets bleiben trotzdem geheim).
   **Privat** = 2000 Minuten im Monat. Dann in `.github/workflows/clipper.yml` den Takt auf `*/3` stellen.
 - **Settings → Pages** → Source: *Deploy from a branch* → `main` / `/docs` → Save.
-  Danach ist die Seite unter `https://DEINNAME.github.io/REPONAME/` erreichbar.
+  Danach ist die Seite unter `https://paulbuch6-coder.github.io/tiktok-cllipper/` erreichbar.
 
 ### 2. Twitch-App (kostenlos)
 - https://dev.twitch.tv/console → *Register Your Application*
@@ -31,9 +31,9 @@ Alle Einstellungen stehen in [`config.yaml`](config.yaml) und lassen sich im Bro
 - https://developers.tiktok.com → *Manage apps* → *Connect an app*
 - Products hinzufügen: **Login Kit** und **Content Posting API**
 - Scopes: `user.info.basic`, `video.upload`, `video.publish`
-- Redirect URI (Login Kit, Web): `https://DEINNAME.github.io/REPONAME/callback.html`
-- Terms of Service URL: `https://DEINNAME.github.io/REPONAME/#terms`
-- Privacy Policy URL: `https://DEINNAME.github.io/REPONAME/#privacy`
+- Redirect URI (Login Kit, Web): `https://paulbuch6-coder.github.io/tiktok-cllipper/callback.html`
+- Terms of Service URL: `https://paulbuch6-coder.github.io/tiktok-cllipper/#terms`
+- Privacy Policy URL: `https://paulbuch6-coder.github.io/tiktok-cllipper/#privacy`
 - Notiere den **Client Key** und das **Client Secret**.
 - **Sofort testen:** Wechsle oben auf *Sandbox* und füge deinen TikTok-Account als *Target User* hinzu.
 - **Für öffentliches Posten:** App zur Prüfung einreichen („Submit for review“). Das dauert ein paar Tage.
@@ -61,10 +61,10 @@ Denselben Namen trägst du als Secret `NTFY_TOPIC` ein. Zu jedem Clip kommt dann
 fertigen Beschreibung zum Kopieren und der Sekunde fürs Titelbild.
 
 ### 6. TikTok verbinden (einmalig)
-Öffne diesen Link am Handy. Vorher `CLIENT_KEY`, `DEINNAME` und `REPONAME` ersetzen:
+Öffne diesen Link am Handy. Vorher `CLIENT_KEY`, `paulbuch6-coder` und `tiktok-cllipper` ersetzen:
 
 ```
-https://www.tiktok.com/v2/auth/authorize/?client_key=CLIENT_KEY&scope=user.info.basic,video.upload,video.publish&response_type=code&state=clipper&redirect_uri=https%3A%2F%2FDEINNAME.github.io%2FREPONAME%2Fcallback.html
+https://www.tiktok.com/v2/auth/authorize/?client_key=CLIENT_KEY&scope=user.info.basic,video.upload,video.publish&response_type=code&state=clipper&redirect_uri=https%3A%2F%2Fpaulbuch6-coder.github.io%2Ftiktok-cllipper%2Fcallback.html
 ```
 
 → Erlauben → Code kopieren → Repo → **Actions → „TikTok verbinden (einmalig)“ → Run workflow** → Code einfügen.
