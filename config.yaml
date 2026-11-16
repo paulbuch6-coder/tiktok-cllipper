@@ -6,10 +6,11 @@
 # ===== TESTWOCHE: Fokus deutsche Top-Streamer =====
 
 # Fokus-Spiele: deren Top-Clips werden immer mit durchsucht und bekommen einen Bonus.
-games:
-  - "Grand Theft Auto VI"
-  - "Grand Theft Auto V"
-game_bonus: 1.5          # GTA-Clips zählen 1,5x so viel beim Ranking
+# Diese Woche: KEIN Spiele-Fokus -> alles, was viral geht (Just Chatting, FIFA/FC, IRL, Gaming …).
+# Ab GTA-Start (Do.) einfach wieder eintragen:
+#   - "Grand Theft Auto VI"
+games: []
+game_bonus: 1.5          # Clips aus den Fokus-Spielen zählen 1,5x so viel beim Ranking
 only_focus_games: false  # true = NUR GTA-Clips, false = alle Kategorien der Top-Streamer
 
 # Große deutsche Streamer (Twitch-Login, klein). Deren Top-Clips werden jeden Lauf geprüft.
