@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -89,6 +90,39 @@ def probe_duration(src: Path) -> float:
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(src)],
         capture_output=True, text=True, check=True).stdout
     return float(json.loads(out)["format"]["duration"])
+
+
+def find_cover_ms(src: Path) -> int:
+    """Lautester Moment im Clip = meist der Höhepunkt -> wird zum Thumbnail."""
+    dur = probe_duration(src)
+    try:
+        out = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(src), "-vn", "-af",
+             "asetnsamples=n=4800,astats=metadata=1:reset=1,"
+             "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-",
+             "-f", "null", "-"],
+            capture_output=True, text=True, check=True).stdout
+    except subprocess.CalledProcessError:
+        return int(min(1.0, dur / 2) * 1000)
+    best_t, best_v, t = min(1.0, dur / 2), -1e9, None
+    for line in out.splitlines():
+        if line.startswith("frame:"):
+            m = re.search(r"pts_time:([\d.]+)", line)
+            t = float(m.group(1)) if m else None
+        elif "RMS_level=" in line and t is not None:
+            try:
+                v = float(line.split("=", 1)[1])
+            except ValueError:
+                continue
+            if 0.5 <= t <= dur - 0.5 and v > best_v:
+                best_t, best_v = t, v
+    return int(best_t * 1000)
+
+
+def save_cover(video_file: Path, ms: int, out: Path) -> Path:
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{ms / 1000:.3f}",
+                    "-i", str(video_file), "-frames:v", "1", "-q:v", "2", str(out)], check=True)
+    return out
 
 
 def render(src: Path, ass: Path | None, out: Path) -> Path:

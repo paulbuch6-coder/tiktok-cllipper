@@ -68,7 +68,8 @@ def _post(token: str, path: str, body: dict) -> dict:
     return data.get("data", {})
 
 
-def upload(token: str, video: Path, caption: str, mode: str, privacy: str) -> str:
+def upload(token: str, video: Path, caption: str, mode: str, privacy: str,
+           cover_ms: int = 1000) -> str:
     size = video.stat().st_size
     chunk = size if size <= CHUNK else CHUNK
     count = max(1, size // chunk)  # letzter Chunk darf größer sein (TikTok-Regel)
@@ -84,7 +85,8 @@ def upload(token: str, video: Path, caption: str, mode: str, privacy: str) -> st
         init = _post(token, "post/publish/video/init/", {
             "post_info": {"title": caption[:2200], "privacy_level": privacy,
                           "disable_duet": False, "disable_comment": False,
-                          "disable_stitch": False},
+                          "disable_stitch": False,
+                          "video_cover_timestamp_ms": cover_ms},
             "source_info": source,
         })
     else:

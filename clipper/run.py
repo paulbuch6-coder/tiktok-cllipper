@@ -5,10 +5,12 @@ import argparse
 import datetime as dt
 import json
 import os
+import random
 import re
 import shutil
 from pathlib import Path
 
+import requests
 import yaml
 
 from . import video
@@ -84,14 +86,64 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
     return out
 
 
-def build_caption(cfg: dict, clip: dict) -> str:
+JUNK = re.compile(r"^(kekw|lul|lol|omegalul|xd+|pog\w*|clip|wtf|haha\w*|w+|l+|\W+|\d+)$", re.I)
+
+
+def good_title(raw: str) -> bool:
+    t = raw.strip()
+    return len(t) >= 10 and not JUNK.match(t) and len(t.split()) >= 2
+
+
+def pick_title(clip: dict, words: list) -> str:
+    """Twitch-Titel, falls brauchbar – sonst der erste gesprochene Satz."""
+    if good_title(clip["title"]):
+        return clip["title"].strip()
+    spoken = " ".join(w for _, _, w in words[:12]).strip()
+    return (spoken[:70].rsplit(" ", 1)[0] + "…") if len(spoken) > 70 else spoken
+
+
+def build_caption(cfg: dict, clip: dict, title: str) -> str:
     lang = clip.get("language", "en")
     tpl = cfg["caption_templates"].get(lang, cfg["caption_templates"]["en"])
-    return tpl.format(title=clip["title"].strip(), streamer=clip["broadcaster_name"],
+    hooks = (cfg.get("hooks") or {}).get(lang) or (cfg.get("hooks") or {}).get("en") or [""]
+    streamer = clip["broadcaster_name"]
+    text = tpl.format(hook=random.choice(hooks), title=title, streamer=streamer,
+                      streamer_tag=re.sub(r"[^a-z0-9_]", "", streamer.lower()),
                       game_tag=game_tag(clip.get("_game_name", "")))
+    seen, parts = set(), []
+    for word in text.split():  # doppelte Hashtags entfernen
+        if word.startswith("#"):
+            if word.lower() in seen or len(word) < 2:
+                continue
+            seen.add(word.lower())
+        parts.append(word)
+    return " ".join(parts).replace(" |  ", " | ").replace("  ", " ")[:2200]
 
 
-def produce(cfg: dict, src: Path, title: str, language: str | None, name: str) -> Path:
+def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str) -> None:
+    """Push aufs Handy (ntfy) + Zusammenfassung im GitHub-Lauf."""
+    msg = (f"{caption}\n\n🖼 Titelbild: Sekunde {cover_ms / 1000:.1f}\n"
+           f"🎥 Quelle: {clip['url']}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write(f"### {clip['broadcaster_name']} – {clip['view_count']} Aufrufe\n\n"
+                    f"**Beschreibung (kopieren):**\n```\n{caption}\n```\n"
+                    f"Titelbild: Sekunde {cover_ms / 1000:.1f} · Quelle: {clip['url']}\n\n")
+    topic = os.environ.get("NTFY_TOPIC")
+    if topic:
+        title = ("Neuer Clip in deiner TikTok-Inbox – Beschreibung kopieren"
+                 if mode == "inbox" else "Clip gepostet ✅")
+        try:
+            requests.post(f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), timeout=15,
+                          headers={"Title": title.encode("utf-8"), "Tags": "movie_camera"})
+        except requests.RequestException as e:
+            print("ntfy fehlgeschlagen:", e)
+
+
+def produce(cfg: dict, src: Path, clip: dict, language: str | None,
+            name: str) -> tuple[Path, str, int]:
+    """Gibt (fertiges Video, Titel, Thumbnail-Zeitpunkt in ms) zurück."""
     dur = video.probe_duration(src)
     words = []
     if cfg.get("captions"):
@@ -100,9 +152,14 @@ def produce(cfg: dict, src: Path, title: str, language: str | None, name: str) -
             print(f"{len(words)} Wörter transkribiert.")
         except Exception as e:  # Untertitel sind nice-to-have, kein Abbruchgrund
             print("Untertitel übersprungen:", e)
+    title = pick_title(clip, words)
     ass = video.make_ass(words, title, dur, src.with_suffix(".ass"))
     OUT.mkdir(exist_ok=True)
-    return video.render(src, ass, OUT / f"{name}.mp4")
+    mp4 = video.render(src, ass, OUT / f"{name}.mp4")
+    cover_ms = video.find_cover_ms(src)
+    video.save_cover(mp4, cover_ms, OUT / f"{name}_thumbnail.jpg")
+    print(f"Titel: {title} | Thumbnail bei {cover_ms / 1000:.1f}s")
+    return mp4, title, cover_ms
 
 
 def main() -> None:
@@ -115,8 +172,11 @@ def main() -> None:
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
 
     if args.local_file:
-        out = produce(cfg, Path(args.local_file), args.title, None, "local_test")
-        print("Fertig:", out)
+        fake = {"title": args.title, "broadcaster_name": "TestStreamer", "language": "de",
+                "url": "https://twitch.tv/", "view_count": 0, "_game_name": "Grand Theft Auto VI"}
+        mp4, title, cover_ms = produce(cfg, Path(args.local_file), fake, None, "local_test")
+        print("Fertig:", mp4)
+        print("Beschreibung:", build_caption(cfg, fake, title))
         return
 
     state = load_state()
@@ -142,12 +202,14 @@ def main() -> None:
         work = WORK / clip["id"]
         try:
             src = video.download(clip["url"], work)
-            mp4 = produce(cfg, src, clip["title"], clip.get("language"), clip["id"])
-            caption = build_caption(cfg, clip)
-            print("Caption:", caption)
+            mp4, title, cover_ms = produce(cfg, src, clip, clip.get("language"), clip["id"])
+            caption = build_caption(cfg, clip, title)
+            print("Beschreibung:", caption)
             if not args.dry_run:
                 from . import tiktok
-                tiktok.upload(token, mp4, caption, cfg["tiktok_mode"], cfg["privacy_level"])
+                tiktok.upload(token, mp4, caption, cfg["tiktok_mode"], cfg["privacy_level"],
+                              cover_ms)
+            notify(cfg, caption, cover_ms, clip, "dry-run" if args.dry_run else cfg["tiktok_mode"])
             state.append({"id": clip["id"], "broadcaster": clip["broadcaster_name"].lower(),
                           "posted_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                           "url": clip["url"], "dry_run": args.dry_run})

@@ -48,7 +48,31 @@ privacy_level: "SELF_ONLY"
 captions: true
 whisper_model: "small"
 
-# Caption-Vorlagen pro Sprache. Platzhalter: {title} {streamer} {game_tag}
+# ---------- BESCHREIBUNG ----------
+# Hooks: pro Clip wird zufällig einer gewählt (Abwechslung = weniger "Spam"-Signal).
+hooks:
+  de:
+    - "Er hat NICHT damit gerechnet 💀"
+    - "Wartet bis zum Ende 😭"
+    - "Das ist gerade wirklich passiert 😂"
+    - "Chat ist komplett eskaliert 💀"
+    - "Niemand war auf das vorbereitet 😳"
+    - "Bester Moment des Streams 🔥"
+  en:
+    - "He did NOT see that coming 💀"
+    - "Wait for the end 😭"
+    - "This actually just happened 😂"
+    - "Chat went absolutely crazy 💀"
+    - "Nobody was ready for this 😳"
+    - "Best moment of the stream 🔥"
+
+# Vorlagen pro Sprache. Platzhalter:
+#   {hook} {title} {streamer} {streamer_tag} {game_tag}
+# {title} = Twitch-Clip-Titel, oder – falls der Müll ist ("KEKW") – der erste gesprochene Satz.
 caption_templates:
-  de: "{title} 😂 | 🎥 twitch.tv/{streamer} #{game_tag} #gta6 #twitch #clips #fyp #deutsch"
-  en: "{title} 😂 | 🎥 twitch.tv/{streamer} #{game_tag} #gta6 #twitch #clips #fyp #viral"
+  de: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #gta6 #twitch #twitchclips #fyp #deutsch"
+  en: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #gta6 #twitch #twitchclips #fyp #viral"
+
+# ---------- THUMBNAIL ----------
+# Wird automatisch gewählt: der lauteste Moment im Clip (= meist der Höhepunkt).
+# Der Hook-Titel ist oben ins Video eingebrannt, also auch auf dem Thumbnail sichtbar.
