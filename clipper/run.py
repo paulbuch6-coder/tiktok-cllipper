@@ -194,10 +194,10 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
         r2 = requests.post(url, data=caption.encode("utf-8"), timeout=30,
                            params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
         r2.raise_for_status()
-        print(f"✅ Push-Nachrichten an ntfy gesendet (Kanal: {topic[:4]}…)")
+        print(f"✅ Push-Nachrichten an ntfy gesendet")
         if summary:
             with open(summary, "a", encoding="utf-8") as f:
-                f.write(f"> ✅ Push-Nachrichten an ntfy gesendet (Kanal beginnt mit `{topic[:4]}`).\n\n")
+                f.write(f"> ✅ Push-Nachrichten an ntfy gesendet.\n\n")
     except requests.RequestException as e:
         print("ntfy fehlgeschlagen:", e)
 
