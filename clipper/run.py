@@ -161,17 +161,21 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
                     f"Titelbild: Sekunde {cover_ms / 1000:.1f} · Quelle: {clip['url']}\n\n")
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
-        print("Kein NTFY_TOPIC gesetzt – keine Handy-Benachrichtigung.")
+        print("⚠️ Kein NTFY_TOPIC gesetzt – KEINE Handy-Benachrichtigung!")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write("> ⚠️ **Keine Push-Nachricht gesendet:** Secret `NTFY_TOPIC` fehlt.\n\n")
         return
     url = f"https://ntfy.sh/{topic}"
     streamer = clip["broadcaster_name"]
     try:
-        if mode == "manual" and mp4 and mp4.stat().st_size < 15 * 1024 * 1024:
+        if mode in ("manual", "dry-run") and mp4 and mp4.stat().st_size < 15 * 1024 * 1024:
             # 1) Video als Anhang
             with open(mp4, "rb") as f:
                 r = requests.put(url, data=f, timeout=120, params={
                     "filename": f"{streamer}_{clip['id'][:20]}.mp4",
-                    "title": f"🎬 Neuer Clip: {streamer} ({clip['view_count']} Aufrufe)",
+                    "title": (f"🧪 TEST – " if mode == "dry-run" else "🎬 ")
+                             + f"Neuer Clip: {streamer} ({clip['view_count']} Aufrufe)",
                     "message": (f"Video herunterladen → in TikTok hochladen.\n"
                                 f"Titelbild: Sekunde {cover_ms / 1000:.1f}. "
                                 f"Beschreibung kommt in der nächsten Nachricht."),
@@ -187,8 +191,13 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
             requests.post(url, timeout=30, params={"title": title, "click": link},
                           data=f"Titelbild: Sekunde {cover_ms / 1000:.1f}\n{link}".encode())
         # 2) Beschreibung als eigene Nachricht -> lange drücken = kopieren
-        requests.post(url, data=caption.encode("utf-8"), timeout=30,
-                      params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
+        r2 = requests.post(url, data=caption.encode("utf-8"), timeout=30,
+                           params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
+        r2.raise_for_status()
+        print(f"✅ Push-Nachrichten an ntfy gesendet (Kanal: {topic[:4]}…)")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(f"> ✅ Push-Nachrichten an ntfy gesendet (Kanal beginnt mit `{topic[:4]}`).\n\n")
     except requests.RequestException as e:
         print("ntfy fehlgeschlagen:", e)
 
