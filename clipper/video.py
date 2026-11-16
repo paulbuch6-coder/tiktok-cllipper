@@ -30,43 +30,82 @@ def _ts(t: float) -> str:
     return f"{int(h)}:{int(m):02d}:{s:05.2f}"
 
 
+FONTS = Path(__file__).resolve().parent.parent / "fonts"
+YELLOW = r"\c&H0000E5FF&"   # aktives Wort (BGR)
+WHITE = r"\c&H00FFFFFF&"
+
+
 def _esc(text: str) -> str:
     return text.replace("\\", "").replace("{", "(").replace("}", ")").replace("\n", " ")
 
 
+def clean_title(text: str) -> str:
+    """Emojis/Sonderzeichen raus (Schrift hat keine), max. ~60 Zeichen, GROSS."""
+    t = "".join(ch for ch in text if ord(ch) < 0x2000 or ch in "–—„“”‘’…")
+    t = re.sub(r"\s+", " ", t).strip(" -|")
+    if len(t) > 60:
+        t = t[:60].rsplit(" ", 1)[0] + "…"
+    return t.upper()
+
+
 def make_ass(words: list[tuple[float, float, str]], title: str, duration: float,
-             path: Path) -> Path:
-    """ASS-Datei: Hook-Titel oben + Wort-für-Wort-Untertitel (2-3 Wörter, TikTok-Stil)."""
+             path: Path, credit: str = "") -> Path:
+    """ASS-Datei im TikTok-Look:
+    - Titel oben: schwarze Anton-Schrift auf weißem Balken (sofort lesbar, auch als Thumbnail)
+    - Untertitel: Montserrat Black, weiß mit dickem Rand, aktives Wort gelb + kleiner Pop
+    - Credit: twitch.tv/streamer klein unter dem Video
+    """
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
 PlayResY: {H}
 WrapStyle: 0
+ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Title,DejaVu Sans,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&HAA000000,1,0,0,0,100,100,0,0,3,18,0,8,70,70,230,1
-Style: Cap,DejaVu Sans,92,&H0000F2FF,&H00FFFFFF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,7,3,2,60,60,430,1
+Style: Title,Anton,92,&H00101010,&H00101010,&H00FFFFFF,&H00000000,0,0,0,0,100,100,1,0,3,22,0,8,90,90,250,1
+Style: Cap,Montserrat Black,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,9,4,2,60,60,420,1
+Style: Credit,Montserrat Black,38,&H40FFFFFF,&H40FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,2,0,1,3,0,2,60,60,555,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     lines = []
     if title:
-        lines.append(f"Dialogue: 0,{_ts(0)},{_ts(duration)},Title,,0,0,0,,{_esc(title)}")
-    group: list[tuple[float, float, str]] = []
+        lines.append(f"Dialogue: 0,{_ts(0)},{_ts(duration)},Title,,0,0,0,,"
+                     rf"{{\fad(0,0)\t(0,120,\fscx104\fscy104)\t(120,240,\fscx100\fscy100)}}"
+                     f"{_esc(clean_title(title))}")
+    if credit:
+        lines.append(f"Dialogue: 0,{_ts(0)},{_ts(duration)},Credit,,0,0,0,,{_esc(credit.upper())}")
 
-    def flush():
-        if group:
-            txt = " ".join(w for _, _, w in group).upper()
-            lines.append(f"Dialogue: 1,{_ts(group[0][0])},{_ts(group[-1][1])},Cap,,0,0,0,,{_esc(txt)}")
-            group.clear()
-
+    groups: list[list[tuple[float, float, str]]] = []
+    cur: list[tuple[float, float, str]] = []
     for w in words:
-        group.append(w)
-        if len(group) >= 3 or w[2].rstrip().endswith((".", "!", "?", ",")):
-            flush()
-    flush()
+        cur.append(w)
+        if len(cur) >= 3 or w[2].rstrip().endswith((".", "!", "?", ",")):
+            groups.append(cur)
+            cur = []
+    if cur:
+        groups.append(cur)
+
+    for gi, g in enumerate(groups):
+        g_end = g[-1][1]
+        if gi + 1 < len(groups):  # Lücken bis zur nächsten Gruppe kurz überbrücken
+            g_end = min(max(g_end, groups[gi + 1][0][0] - 0.05), g_end + 0.4)
+        for wi, (start, end, _) in enumerate(g):
+            w_end = g[wi + 1][0] if wi + 1 < len(g) else g_end
+            if w_end <= start:
+                continue
+            parts = []
+            for wj, (_, _, txt) in enumerate(g):
+                t = _esc(txt.upper().strip(".,"))
+                if wj == wi:
+                    parts.append(rf"{{{YELLOW}\fscx112\fscy112\t(0,90,\fscx100\fscy100)}}{t}{{{WHITE}}}")
+                else:
+                    parts.append(t)
+            lines.append(f"Dialogue: 1,{_ts(start)},{_ts(w_end)},Cap,,0,0,0,,{' '.join(parts)}")
+
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -131,11 +170,11 @@ def render(src: Path, ass: Path | None, out: Path) -> Path:
         f"[0:v]split=2[a][b];"
         f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
         f"boxblur=25:2,eq=brightness=-0.08[bg];"
-        f"[b]scale={W}:-2[fg];"
+        f"[b]scale={int(W * 1.15)}:-2,crop={W}:ih[fg];"
         f"[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1"
     )
     if ass:
-        vf += f",subtitles='{ass.as_posix()}'"
+        vf += f",subtitles='{ass.as_posix()}':fontsdir='{FONTS.as_posix()}'"
     vf += "[v]"
     cmd = [
         "ffmpeg", "-y", "-v", "error", "-i", str(src),

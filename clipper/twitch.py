@@ -62,3 +62,16 @@ class Twitch:
             if not cursor:
                 break
         return clips
+
+    def live_streams(self, language: str, first: int = 20) -> list[dict]:
+        """Die aktuell meistgesehenen Live-Streams einer Sprache."""
+        return self._get("streams", {"language": language, "first": first,
+                                     "type": "live"})["data"]
+
+    def game_names(self, ids: list[str]) -> dict[str, str]:
+        out = {}
+        ids = [i for i in dict.fromkeys(ids) if i]
+        for i in range(0, len(ids), 100):
+            for g in self._get("games", [("id", x) for x in ids[i:i + 100]])["data"]:
+                out[g["id"]] = g["name"]
+        return out

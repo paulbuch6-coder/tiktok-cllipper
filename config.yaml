@@ -3,27 +3,59 @@
 #  Alles hier kannst du direkt auf GitHub im Browser bearbeiten.
 # ============================================================
 
-# Spiele, aus denen virale Clips gesucht werden (exakter Twitch-Kategoriename).
+# ===== TESTWOCHE: Fokus deutsche Top-Streamer =====
+
+# Fokus-Spiele: deren Top-Clips werden immer mit durchsucht und bekommen einen Bonus.
 games:
   - "Grand Theft Auto VI"
   - "Grand Theft Auto V"
+game_bonus: 1.5          # GTA-Clips zählen 1,5x so viel beim Ranking
+only_focus_games: false  # true = NUR GTA-Clips, false = alle Kategorien der Top-Streamer
 
-# Optional: nur Clips von diesen Streamern (Twitch-Loginname, klein geschrieben).
-# Leer lassen = alle Streamer in den Spielen oben.
-# EMPFEHLUNG: Nur Streamer eintragen, die Clipping erlauben!
+# Große deutsche Streamer (Twitch-Login, klein). Deren Top-Clips werden jeden Lauf geprüft.
+# Unbekannte Namen werden einfach ignoriert. Liste beliebig erweitern/kürzen.
+top_streamers:
+  - montanablack88
+  - papaplatte
+  - trymacs
+  - eliasn97
+  - rewinside
+  - handofblood
+  - knossi
+  - reved
+  - sidneyeweka
+  - inscope21
+  - unsympathischtv
+  - gronkh
+  - zarbex
+  - rumathra
+  - noway4u_sir
+  - stegi
+  - mckytv
+  - staiy
+  - amar
+  - letshugotv
+  - shurjoke
+  - dhalucard
+  - tanzverbot
+
+# Zusätzlich: die N deutschsprachigen Streams, die GERADE live die meisten Zuschauer haben.
+live_top_n: 25
+
+# Optional: NUR diese Streamer (überschreibt alles oben). Leer = aus.
 streamers_allowlist: []
 
 # Diese Streamer werden NIE gepostet (z. B. wenn jemand Clipping verbietet).
 streamers_blocklist: []
 
 # Sprachen der Clips (Twitch-Streamsprache).
-languages: ["de", "en"]
+languages: ["de"]
 
 # Wie weit zurück nach Clips gesucht wird (Stunden).
 lookback_hours: 24
 
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
-min_views: 300
+min_views: 200
 
 # Clip-Länge in Sekunden (TikTok: zu kurz = wenig Watchtime).
 min_duration: 8
@@ -48,7 +80,7 @@ privacy_level: "SELF_ONLY"
 
 # Automatische Untertitel (Whisper). Modell: tiny / base / small (small = besser, langsamer)
 captions: true
-whisper_model: "small"
+whisper_model: "medium"   # medium = deutlich besser bei deutschem Slang
 
 # ---------- BESCHREIBUNG ----------
 # Hooks: pro Clip wird zufällig einer gewählt (Abwechslung = weniger "Spam"-Signal).
@@ -56,23 +88,26 @@ hooks:
   de:
     - "Er hat NICHT damit gerechnet 💀"
     - "Wartet bis zum Ende 😭"
-    - "Das ist gerade wirklich passiert 😂"
+    - "Das ist gerade wirklich live passiert 😳"
     - "Chat ist komplett eskaliert 💀"
-    - "Niemand war auf das vorbereitet 😳"
+    - "Niemand war darauf vorbereitet 😂"
     - "Bester Moment des Streams 🔥"
+    - "Ich kann nicht mehr 😭😭"
+    - "Wie ist das bitte live passiert?! 💀"
+    - "Er wusste sofort, dass es vorbei ist 😂"
+    - "Das Ende… 😳"
+    - "Bro hat einfach komplett verloren 💀"
+    - "Kein Mensch hat das kommen sehen 😂"
   en:
     - "He did NOT see that coming 💀"
     - "Wait for the end 😭"
     - "This actually just happened 😂"
-    - "Chat went absolutely crazy 💀"
-    - "Nobody was ready for this 😳"
-    - "Best moment of the stream 🔥"
 
 # Vorlagen pro Sprache. Platzhalter:
 #   {hook} {title} {streamer} {streamer_tag} {game_tag}
 # {title} = Twitch-Clip-Titel, oder – falls der Müll ist ("KEKW") – der erste gesprochene Satz.
 caption_templates:
-  de: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #gta6 #twitch #twitchclips #fyp #deutsch"
+  de: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #twitchclips #twitchdeutschland #streamer #fürdich #fyp #deutsch #lustig"
   en: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #gta6 #twitch #twitchclips #fyp #viral"
 
 # ---------- THUMBNAIL ----------

@@ -33,32 +33,52 @@ def save_state(state: list[dict]) -> None:
 
 
 def game_tag(name: str) -> str:
-    return {"Grand Theft Auto VI": "gta6", "Grand Theft Auto V": "gtarp"}.get(
+    return {"Grand Theft Auto VI": "gta6", "Grand Theft Auto V": "gtarp",
+            "Just Chatting": "twitchclips", "": "twitch"}.get(
         name, re.sub(r"[^a-z0-9]", "", name.lower()))
 
 
-def score(clip: dict) -> float:
-    """Aufrufe pro Stunde seit Erstellung -> bevorzugt, was GERADE viral geht."""
+def score(clip: dict, cfg: dict | None = None, focus_games: set | None = None) -> float:
+    """Aufrufe pro Stunde seit Erstellung -> bevorzugt, was GERADE viral geht.
+    Clips aus den Fokus-Spielen (z. B. GTA) bekommen einen Bonus."""
     created = dt.datetime.fromisoformat(clip["created_at"].replace("Z", "+00:00"))
     age_h = max((dt.datetime.now(dt.timezone.utc) - created).total_seconds() / 3600, 0.5)
-    return clip["view_count"] / age_h
+    s = clip["view_count"] / age_h
+    if cfg and focus_games and clip.get("game_id") in focus_games:
+        s *= float(cfg.get("game_bonus", 1.0))
+    return s
 
 
 def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
     from .twitch import Twitch
 
     tw = Twitch()
+    hours = cfg["lookback_hours"]
+    langs = list(cfg.get("languages") or [])
     games = tw.game_ids(cfg.get("games", []))
-    print("Spiele:", games or "(keine gefunden)")
+    print("Fokus-Spiele:", games or "(keine gefunden)")
     clips: list[dict] = []
-    allow = [s.lower() for s in cfg.get("streamers_allowlist") or []]
-    if allow:
-        for uid in tw.user_ids(allow):
-            clips += tw.top_clips(broadcaster_id=uid, hours=cfg["lookback_hours"], pages=1)
-    else:
-        for gid in games:
-            clips += tw.top_clips(game_id=gid, hours=cfg["lookback_hours"])
 
+    # 1) Top-Clips aus den Fokus-Spielen (z. B. GTA)
+    for gid in games:
+        clips += tw.top_clips(game_id=gid, hours=hours)
+
+    # 2) Feste Liste großer Streamer + 3) wer gerade live die meisten Zuschauer hat
+    logins = [s.lower() for s in (cfg.get("streamers_allowlist") or [])]
+    logins += [s.lower() for s in (cfg.get("top_streamers") or [])]
+    broadcaster_ids = set(tw.user_ids(list(dict.fromkeys(logins)))) if logins else set()
+    if cfg.get("live_top_n", 0):
+        for lang in langs:
+            for st in tw.live_streams(lang, cfg["live_top_n"]):
+                broadcaster_ids.add(st["user_id"])
+    print(f"Durchsuche {len(broadcaster_ids)} Streamer + {len(games)} Spiele …")
+    for bid in broadcaster_ids:
+        try:
+            clips += tw.top_clips(broadcaster_id=bid, hours=hours, pages=1)
+        except Exception as e:
+            print("Streamer übersprungen:", bid, e)
+
+    allow_only = {s.lower() for s in (cfg.get("streamers_allowlist") or [])}
     posted_ids = {s["id"] for s in state}
     day_ago = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
     per_streamer: dict[str, int] = {}
@@ -67,22 +87,32 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
             per_streamer[s["broadcaster"]] = per_streamer.get(s["broadcaster"], 0) + 1
 
     block = {s.lower() for s in cfg.get("streamers_blocklist") or []}
-    langs = set(cfg.get("languages") or [])
     seen, out = set(), []
     for c in clips:
         login = c["broadcaster_name"].lower()
         if (c["id"] in posted_ids or c["id"] in seen or login in block
+                or (allow_only and login not in allow_only)
                 or (langs and c.get("language") not in langs)
-                or (games and c.get("game_id") not in games)
+                or (cfg.get("only_focus_games") and c.get("game_id") not in games)
                 or c["view_count"] < cfg["min_views"]
                 or not cfg["min_duration"] <= c["duration"] <= cfg["max_duration"]
                 or per_streamer.get(login, 0) >= cfg["max_per_streamer_per_day"]):
             continue
         seen.add(c["id"])
-        c["_game_name"] = games.get(c.get("game_id"), "")
         out.append(c)
-    out.sort(key=score, reverse=True)
-    print(f"{len(clips)} Clips gefunden, {len(out)} passen zu den Filtern.")
+    names = dict(games)
+    try:
+        names.update(tw.game_names([c.get("game_id") for c in out if c.get("game_id") not in names]))
+    except Exception:
+        pass
+    for c in out:
+        c["_game_name"] = names.get(c.get("game_id"), "")
+    focus = set(games)
+    out.sort(key=lambda c: score(c, cfg, focus), reverse=True)
+    print(f"{len(clips)} Clips gefunden, {len(out)} passen zu den Filtern. Top 5:")
+    for c in out[:5]:
+        print(f"  {score(c, cfg, focus):8.0f}/h  {c['broadcaster_name']:<16} {c['view_count']:>7} Aufrufe  "
+              f"{c['_game_name'][:20]:<20} {c['title'][:50]}")
     return out
 
 
@@ -175,7 +205,8 @@ def produce(cfg: dict, src: Path, clip: dict, language: str | None,
         except Exception as e:  # Untertitel sind nice-to-have, kein Abbruchgrund
             print("Untertitel übersprungen:", e)
     title = pick_title(clip, words)
-    ass = video.make_ass(words, title, dur, src.with_suffix(".ass"))
+    ass = video.make_ass(words, title, dur, src.with_suffix(".ass"),
+                         credit=f"twitch.tv/{clip['broadcaster_name']}")
     OUT.mkdir(exist_ok=True)
     mp4 = video.render(src, ass, OUT / f"{name}.mp4")
     cover_ms = video.find_cover_ms(src)
