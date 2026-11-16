@@ -156,6 +156,17 @@ def build_caption(cfg: dict, clip: dict, title: str) -> str:
     return "\n".join(lines)[:2200]
 
 
+def write_summary(clip: dict, caption: str, cover_ms: int) -> None:
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary:
+        return
+    opt = f"Option {clip['_option']}: " if clip.get("_option") else ""
+    with open(summary, "a", encoding="utf-8") as f:
+        f.write(f"### {opt}{clip['broadcaster_name']} – {clip['view_count']} Aufrufe\n\n"
+                f"**Beschreibung (kopieren):**\n```\n{caption}\n```\n"
+                f"Titelbild: Sekunde {cover_ms / 1000:.1f} · Quelle: {clip['url']}\n\n")
+
+
 def _clean_topic(raw: str) -> str:
     """Kanalname aus dem Secret: Leerzeichen/Zeilenumbrüche weg, ganze URL erlaubt."""
     t = raw.strip().strip("/")
@@ -336,6 +347,7 @@ def main() -> None:
             (ROOT / ".new_refresh_token").write_text(new_refresh)
 
     done = 0
+    new_clips: list[dict] = []
     total = int(cfg["clips_per_run"])
     used_streamers: set[str] = set()
     for clip in candidates:
@@ -355,7 +367,14 @@ def main() -> None:
                 from . import tiktok
                 tiktok.upload(token, mp4, caption, mode, cfg["privacy_level"], cover_ms)
             clip["_option"] = f"{done + 1}/{total}" if total > 1 else ""
-            notify(cfg, caption, cover_ms, clip, mode, mp4)
+            write_summary(clip, caption, cover_ms)
+            new_clips.append({
+                "id": clip["id"], "file": mp4.name, "thumb": f"{clip['id']}_thumbnail.jpg",
+                "streamer": clip["broadcaster_name"], "views": clip["view_count"],
+                "game": clip.get("_game_name", ""), "caption": caption,
+                "cover_s": round(cover_ms / 1000, 1), "option": done + 1,
+                "source": clip["url"], "test": mode == "dry-run",
+                "created": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")})
             used_streamers.add(clip["broadcaster_name"].lower())
             state.append({"id": clip["id"], "broadcaster": clip["broadcaster_name"].lower(),
                           "posted_at": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -368,6 +387,8 @@ def main() -> None:
 
     if not args.dry_run:
         save_state(state)
+    OUT.mkdir(exist_ok=True)
+    (OUT / "new_clips.json").write_text(json.dumps(new_clips, ensure_ascii=False, indent=2))
     print(f"\n{done} Clip(s) verarbeitet.")
 
 

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f13">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Clips">
+<title>Clip Drop</title>
+<style>
+  :root {
+    --bg: #0e0f13; --card: #181a21; --line: #2a2d37; --text: #f2f3f5; --muted: #9aa0ad;
+    --accent: #fe2c55; --accent2: #25f4ee; --ok: #2ecc71;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         padding: 0 16px calc(32px + env(safe-area-inset-bottom)); }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg);
+           padding: calc(14px + env(safe-area-inset-top)) 0 12px; display: flex;
+           align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  h1 span { color: var(--accent); }
+  .reload { background: none; border: 1px solid var(--line); color: var(--text);
+            border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+  .batch { color: var(--muted); font-size: 13px; margin: 22px 0 10px; text-transform: uppercase;
+           letter-spacing: .6px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+          padding: 14px; margin-bottom: 14px; }
+  .card.done { opacity: .45; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .opt { background: var(--accent); color: #fff; font-weight: 700; font-size: 12px;
+         border-radius: 999px; padding: 2px 9px; }
+  .opt.test { background: #6b5cff; }
+  .who { font-weight: 700; }
+  .small { color: var(--muted); font-size: 13px; }
+  video { width: 100%; max-height: 44vh; aspect-ratio: 9/16; object-fit: contain;
+          background: #000; border-radius: 12px; display: block; }
+  .caption { white-space: pre-wrap; background: #0f1116; border: 1px solid var(--line);
+             border-radius: 10px; padding: 10px; font-size: 14px; margin: 12px 0 10px; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button.b { border: 0; border-radius: 12px; padding: 13px 10px; font-size: 15px; font-weight: 700;
+             color: #fff; background: var(--accent); }
+  button.b.alt { background: #2b2f3a; }
+  button.b.ok { background: var(--ok); }
+  button.b:disabled { opacity: .6; }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+         gap: 10px; }
+  .row a { color: var(--accent2); font-size: 13px; }
+  .empty { color: var(--muted); text-align: center; margin-top: 40px; }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
+           transform: translateX(-50%); background: #fff; color: #000; padding: 10px 16px;
+           border-radius: 999px; font-weight: 700; font-size: 14px; opacity: 0; transition: .2s;
+           pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Clip<span>Drop</span></h1>
+  <button class="reload" onclick="load()">↻ Neu laden</button>
+</header>
+<main id="list"><p class="empty">Lade Clips …</p></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const DONE_KEY = "clipdrop-done";
+const blobs = {};
+let done = {};
+try { done = JSON.parse(localStorage.getItem(DONE_KEY) || "{}"); } catch (e) {}
+
+function toast(t) {
+  const el = document.getElementById("toast");
+  el.textContent = t; el.classList.add("show");
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 1800);
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function ago(iso) {
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return "gerade eben";
+  if (m < 60) return `vor ${m} Min.`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `vor ${h} Std.` : `vor ${Math.round(h / 24)} Tg.`;
+}
+function batchLabel(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("de-DE", {weekday: "short", day: "2-digit", month: "2-digit"}) +
+         " · " + d.toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit"}) + " Uhr";
+}
+
+async function prefetch(c) {
+  if (blobs[c.id]) return blobs[c.id];
+  blobs[c.id] = fetch("clips/" + c.file).then(r => {
+    if (!r.ok) throw new Error(r.status);
+    return r.blob();
+  }).then(b => new File([b], `${c.streamer}_${c.option}.mp4`, {type: "video/mp4"}));
+  return blobs[c.id];
+}
+
+async function share(c, btn) {
+  try {
+    btn.disabled = true; btn.textContent = "Lädt …";
+    const file = await prefetch(c);
+    if (navigator.canShare && navigator.canShare({files: [file]})) {
+      btn.disabled = false; btn.textContent = "⬇️ Speichern / Teilen";
+      await navigator.share({files: [file]});
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(file); a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("Download gestartet");
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    if (e && e.name === "NotAllowedError") { toast("Video bereit – nochmal tippen"); return; }
+    window.open("clips/" + c.file, "_blank");
+  } finally {
+    btn.disabled = false; btn.textContent = "⬇️ Speichern / Teilen";
+  }
+}
+
+async function copy(c, btn) {
+  try { await navigator.clipboard.writeText(c.caption); }
+  catch (e) {
+    const t = document.createElement("textarea"); t.value = c.caption;
+    document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
+  }
+  btn.classList.add("ok"); btn.textContent = "✓ Kopiert";
+  toast("Beschreibung kopiert");
+  setTimeout(() => { btn.classList.remove("ok"); btn.textContent = "📋 Beschreibung"; }, 1800);
+}
+
+function toggleDone(c, card, btn) {
+  done[c.id] = !done[c.id];
+  try { localStorage.setItem(DONE_KEY, JSON.stringify(done)); } catch (e) {}
+  card.classList.toggle("done", !!done[c.id]);
+  btn.textContent = done[c.id] ? "↩︎ Nicht gepostet" : "✓ Gepostet";
+}
+
+function render(clips) {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  if (!clips.length) { list.innerHTML = '<p class="empty">Noch keine Clips da.</p>'; return; }
+  let lastBatch = "";
+  clips.forEach((c, i) => {
+    const batch = batchLabel(c.created);
+    if (batch !== lastBatch) {
+      const h = document.createElement("div"); h.className = "batch"; h.textContent = batch;
+      list.appendChild(h); lastBatch = batch;
+    }
+    const card = document.createElement("section");
+    card.className = "card" + (done[c.id] ? " done" : "");
+    card.innerHTML = `
+      <div class="meta">
+        <span class="opt${c.test ? " test" : ""}">${c.test ? "TEST · " : ""}Option ${c.option}</span>
+        <span class="who">${esc(c.streamer)}</span>
+        <span class="small">${Number(c.views).toLocaleString("de-DE")} Aufrufe · ${esc(c.game || "Twitch")} · ${ago(c.created)}</span>
+      </div>
+      <video controls playsinline preload="none" poster="clips/${esc(c.thumb)}" src="clips/${esc(c.file)}"></video>
+      <div class="caption">${esc(c.caption)}</div>
+      <div class="btns">
+        <button class="b dl">⬇️ Speichern / Teilen</button>
+        <button class="b alt cp">📋 Beschreibung</button>
+      </div>
+      <div class="row">
+        <span class="small">Titelbild: Sekunde ${c.cover_s}</span>
+        <button class="reload mk">${done[c.id] ? "↩︎ Nicht gepostet" : "✓ Gepostet"}</button>
+      </div>
+      <div class="row"><a href="${esc(c.source)}" target="_blank" rel="noopener">Original auf Twitch ↗</a>
+        <a href="clips/${esc(c.file)}" target="_blank">Video direkt öffnen ↗</a></div>`;
+    card.querySelector(".dl").onclick = e => share(c, e.currentTarget);
+    card.querySelector(".cp").onclick = e => copy(c, e.currentTarget);
+    card.querySelector(".mk").onclick = e => toggleDone(c, card, e.currentTarget);
+    list.appendChild(card);
+    if (i < 3 && !done[c.id]) prefetch(c).catch(() => {});  // neueste vorladen -> Teilen klappt sofort
+  });
+}
+
+async function load() {
+  try {
+    const r = await fetch("clips.json?t=" + Date.now(), {cache: "no-store"});
+    render(r.ok ? await r.json() : []);
+  } catch (e) {
+    document.getElementById("list").innerHTML = '<p class="empty">Konnte Clips nicht laden. Später nochmal versuchen.</p>';
+  }
+}
+load();
+</script>
+</body>
+</html>

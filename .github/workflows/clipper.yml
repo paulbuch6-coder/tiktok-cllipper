@@ -18,11 +18,15 @@ concurrency:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   clip:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    environment:
+      name: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +56,40 @@ jobs:
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python -m clipper.run ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Bisherige Clips der Seite laden
+        uses: actions/cache/restore@v4
+        with:
+          path: site/clips
+          key: site-${{ github.run_id }}
+          restore-keys: site-
+
+      - name: Clip-Seite bauen
+        run: |
+          mkdir -p site/clips
+          [ -f site/clips/clips.json ] && mv site/clips/clips.json site/clips.json || true
+          cp -r docs/. site/
+          python -m clipper.publish site site
+          cp site/clips.json site/clips/clips.json
+
+      - name: Clips für den nächsten Lauf merken
+        uses: actions/cache/save@v4
+        with:
+          path: site/clips
+          key: site-${{ github.run_id }}
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Clip-Seite veröffentlichen
+        uses: actions/deploy-pages@v4
+
+      - name: Push aufs Handy
+        if: ${{ !cancelled() }}
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python -m clipper.publish notify
 
       - name: Neuen TikTok-Refresh-Token speichern
         if: always() && hashFiles('.new_refresh_token') != ''
