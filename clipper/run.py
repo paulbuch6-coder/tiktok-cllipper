@@ -137,17 +137,23 @@ def build_caption(cfg: dict, clip: dict, title: str) -> str:
     tpl = cfg["caption_templates"].get(lang, cfg["caption_templates"]["en"])
     hooks = (cfg.get("hooks") or {}).get(lang) or (cfg.get("hooks") or {}).get("en") or [""]
     streamer = clip["broadcaster_name"]
-    text = tpl.format(hook=random.choice(hooks), title=title, streamer=streamer,
+    game = clip.get("_game_name", "") or "Twitch"
+    text = tpl.format(hook=random.choice(hooks), title=title, streamer=streamer, game=game,
                       streamer_tag=re.sub(r"[^a-z0-9_]", "", streamer.lower()),
                       game_tag=game_tag(clip.get("_game_name", "")))
-    seen, parts = set(), []
-    for word in text.split():  # doppelte Hashtags entfernen
-        if word.startswith("#"):
-            if word.lower() in seen or len(word) < 2:
-                continue
-            seen.add(word.lower())
-        parts.append(word)
-    return " ".join(parts).replace(" |  ", " | ").replace("  ", " ")[:2200]
+    seen, lines = set(), []
+    for line in text.splitlines():  # Zeilen behalten, doppelte/leere Hashtags entfernen
+        parts = []
+        for word in line.split():
+            if word.startswith("#"):
+                if word.lower() in seen or len(word) < 2:
+                    continue
+                seen.add(word.lower())
+            parts.append(word)
+        line = " ".join(parts).strip(" |–-")
+        if line:
+            lines.append(line)
+    return "\n".join(lines)[:2200]
 
 
 def _clean_topic(raw: str) -> str:
@@ -171,7 +177,8 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
 
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
-            f.write(f"### {clip['broadcaster_name']} – {clip['view_count']} Aufrufe\n\n"
+            opt = f"Option {clip['_option']}: " if clip.get("_option") else ""
+            f.write(f"### {opt}{clip['broadcaster_name']} – {clip['view_count']} Aufrufe\n\n"
                     f"**Beschreibung (kopieren):**\n```\n{caption}\n```\n"
                     f"Titelbild: Sekunde {cover_ms / 1000:.1f} · Quelle: {clip['url']}\n\n")
     topic = _clean_topic(os.environ.get("NTFY_TOPIC") or "")
@@ -188,6 +195,8 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
     run, repo = os.environ.get("GITHUB_RUN_ID"), os.environ.get("GITHUB_REPOSITORY")
     link = f"https://github.com/{repo}/actions/runs/{run}" if run and repo else ""
     prefix = "🧪 TEST – " if mode == "dry-run" else "🎬 "
+    if clip.get("_option"):
+        prefix += f"Option {clip['_option']} – "
     ok_video = ok_text = False
     errors = []
 
@@ -234,7 +243,9 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
     # 2) Beschreibung als eigene Nachricht -> lange drücken = kopieren
     try:
         r = requests.post(url, data=caption.encode("utf-8"), timeout=30,
-                          params={"title": "📋 Beschreibung (lange drücken → kopieren)"})
+                          params={"title": (f"📋 Beschreibung Option {clip['_option']}"
+                                            if clip.get("_option") else "📋 Beschreibung")
+                                           + " (lange drücken → kopieren)"})
         ok_text = r.ok
         if not r.ok:
             err("Beschreibung", None, r)
@@ -249,6 +260,20 @@ def notify(cfg: dict, caption: str, cover_ms: int, clip: dict, mode: str,
         note("❌ **Push an ntfy fehlgeschlagen:** " + "; ".join(errors))
 
 
+def plan_cut(cfg: dict, dur: float, words: list, loud_s: float) -> tuple[float, float]:
+    """Start/Länge festlegen: Leerlauf am Anfang weg, max. Länge um den Höhepunkt herum."""
+    start = 0.0
+    max_trim = float(cfg.get("max_start_trim", 4))
+    if words and words[0][0] > 1.2:
+        start = min(words[0][0] - 0.4, max_trim)
+    max_len = float(cfg.get("max_output_seconds", 40))
+    if dur - start > max_len:
+        # Fenster so legen, dass der Höhepunkt drin ist und danach noch ~8 s Reaktion kommen
+        start = min(max(start, loud_s + 8 - max_len), dur - max_len)
+    length = min(dur - start, max_len)
+    return round(start, 2), round(length, 2)
+
+
 def produce(cfg: dict, src: Path, clip: dict, language: str | None,
             name: str) -> tuple[Path, str, int]:
     """Gibt (fertiges Video, Titel, Thumbnail-Zeitpunkt in ms) zurück."""
@@ -260,12 +285,19 @@ def produce(cfg: dict, src: Path, clip: dict, language: str | None,
             print(f"{len(words)} Wörter transkribiert.")
         except Exception as e:  # Untertitel sind nice-to-have, kein Abbruchgrund
             print("Untertitel übersprungen:", e)
+    loud_ms = video.find_cover_ms(src)
+    start, length = plan_cut(cfg, dur, words, loud_ms / 1000)
+    if start or length < dur:
+        print(f"Schnitt: {start:.1f}s – {start + length:.1f}s (Original {dur:.1f}s)")
+    # Wörter auf den neuen Zeitbereich verschieben
+    words = [(a - start, e - start, w) for a, e, w in words if e > start and a < start + length]
+    words = [(max(a, 0.0), min(e, length), w) for a, e, w in words]
     title = pick_title(clip, words)
-    ass = video.make_ass(words, title, dur, src.with_suffix(".ass"),
+    ass = video.make_ass(words, title, length, src.with_suffix(".ass"),
                          credit=f"twitch.tv/{clip['broadcaster_name']}")
     OUT.mkdir(exist_ok=True)
-    mp4 = video.render(src, ass, OUT / f"{name}.mp4")
-    cover_ms = video.find_cover_ms(src)
+    mp4 = video.render(src, ass, OUT / f"{name}.mp4", start=start, length=length)
+    cover_ms = int(min(max(loud_ms - start * 1000, 0), max(length * 1000 - 500, 0)))
     video.save_cover(mp4, cover_ms, OUT / f"{name}_thumbnail.jpg")
     print(f"Titel: {title} | Thumbnail bei {cover_ms / 1000:.1f}s")
     return mp4, title, cover_ms
@@ -304,9 +336,13 @@ def main() -> None:
             (ROOT / ".new_refresh_token").write_text(new_refresh)
 
     done = 0
+    total = int(cfg["clips_per_run"])
+    used_streamers: set[str] = set()
     for clip in candidates:
-        if done >= cfg["clips_per_run"]:
+        if done >= total:
             break
+        if clip["broadcaster_name"].lower() in used_streamers:
+            continue  # pro Lauf jeder Streamer nur einmal -> echte Auswahl
         print(f"\n▶ {clip['broadcaster_name']}: {clip['title']} "
               f"({clip['view_count']} Aufrufe, {clip['language']}) {clip['url']}")
         work = WORK / clip["id"]
@@ -318,7 +354,9 @@ def main() -> None:
             if mode in ("inbox", "direct"):
                 from . import tiktok
                 tiktok.upload(token, mp4, caption, mode, cfg["privacy_level"], cover_ms)
+            clip["_option"] = f"{done + 1}/{total}" if total > 1 else ""
             notify(cfg, caption, cover_ms, clip, mode, mp4)
+            used_streamers.add(clip["broadcaster_name"].lower())
             state.append({"id": clip["id"], "broadcaster": clip["broadcaster_name"].lower(),
                           "posted_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                           "url": clip["url"], "dry_run": args.dry_run})

@@ -2,7 +2,9 @@ name: TikTok Clipper
 
 on:
   schedule:
-    - cron: "17 */2 * * *"   # alle 2 Stunden (UTC)
+    # 6 Läufe am Tag zu den besten Zeiten (deutsche Winterzeit = UTC+1):
+    # 11:17, 13:17, 15:17, 17:17, 19:17, 21:17 Uhr. Nachts Pause.
+    - cron: "17 10-20/2 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

@@ -164,7 +164,8 @@ def save_cover(video_file: Path, ms: int, out: Path) -> Path:
     return out
 
 
-def render(src: Path, ass: Path | None, out: Path) -> Path:
+def render(src: Path, ass: Path | None, out: Path, start: float = 0.0,
+           length: float | None = None) -> Path:
     """Hochformat: unscharfer, gezoomter Hintergrund + Originalvideo mittig + Untertitel."""
     vf = (
         f"[0:v]split=2[a][b];"
@@ -177,7 +178,8 @@ def render(src: Path, ass: Path | None, out: Path) -> Path:
         vf += f",subtitles='{ass.as_posix()}':fontsdir='{FONTS.as_posix()}'"
     vf += "[v]"
     cmd = [
-        "ffmpeg", "-y", "-v", "error", "-i", str(src),
+        "ffmpeg", "-y", "-v", "error", "-ss", f"{start:.3f}",
+        *(["-t", f"{length:.3f}"] if length else []), "-i", str(src),
         "-filter_complex", vf, "-map", "[v]", "-map", "0:a?",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-maxrate", "1700k", "-bufsize", "3400k", "-pix_fmt", "yuv420p",
         "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out),

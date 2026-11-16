@@ -58,12 +58,17 @@ lookback_hours: 24
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
 min_views: 200
 
-# Clip-Länge in Sekunden (TikTok: zu kurz = wenig Watchtime).
+# Clip-Länge der Twitch-Clips, die überhaupt infrage kommen (Sekunden).
 min_duration: 8
 max_duration: 60
 
-# Wie viele Clips pro Lauf gepostet werden.
-clips_per_run: 1
+# Schnitt fürs fertige Video:
+max_output_seconds: 40   # länger wird um den Höhepunkt herum gekürzt (15-35 s laufen am besten)
+max_start_trim: 4        # so viele Sekunden Leerlauf am Anfang dürfen max. weg
+
+# Wie viele Clips pro Lauf geschickt werden (zur Auswahl, je ein anderer Streamer).
+# Du postest davon nur den stärksten.
+clips_per_run: 3
 
 # Maximal so viele Clips pro Streamer innerhalb von 24h (Abwechslung).
 max_per_streamer_per_day: 2
@@ -105,11 +110,18 @@ hooks:
     - "This actually just happened 😂"
 
 # Vorlagen pro Sprache. Platzhalter:
-#   {hook} {title} {streamer} {streamer_tag} {game_tag}
+#   {hook} {title} {streamer} {streamer_tag} {game} {game_tag}
 # {title} = Twitch-Clip-Titel, oder – falls der Müll ist ("KEKW") – der erste gesprochene Satz.
+# Zeilenumbrüche bleiben erhalten. Wenige Hashtags + Suchbegriffe als Text = besser für die TikTok-Suche.
 caption_templates:
-  de: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #twitchclips #twitchdeutschland #streamer #fürdich #fyp #deutsch #lustig"
-  en: "{hook} {title} | 🎥 twitch.tv/{streamer} #{streamer_tag} #{game_tag} #gta6 #twitch #twitchclips #fyp #viral"
+  de: |
+    {hook} {title}
+    {streamer} Twitch Clip deutsch | {game}
+    #{streamer_tag} #twitchdeutschland #twitchclips #fürdich
+  en: |
+    {hook} {title}
+    {streamer} Twitch clip | {game}
+    #{streamer_tag} #twitchclips #fyp
 
 # ---------- THUMBNAIL ----------
 # Wird automatisch gewählt: der lauteste Moment im Clip (= meist der Höhepunkt).

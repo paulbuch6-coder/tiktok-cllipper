@@ -47,7 +47,7 @@ Ab dann läuft alles automatisch alle 2 Stunden.
 | Streamer ausschließen | `streamers_blocklist: ["name"]` |
 | Mehr/weniger viral | `min_views: 300` |
 | Hooks & Hashtags | `hooks:` und `caption_templates:` |
-| Takt ändern | `.github/workflows/clipper.yml` → `cron: "17 */2 * * *"` (`*/3` = alle 3 Stunden) |
+| Uhrzeiten ändern | `.github/workflows/clipper.yml` → `cron: "17 10-20/2 * * *"` (Stunden in UTC, Winterzeit = deutsche Zeit − 1) |
 | Pausieren | Actions → TikTok Clipper → **„…“ → Disable workflow** |
 
 ## Später: über die TikTok-API hochladen (optional)
