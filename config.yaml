@@ -1,0 +1,54 @@
+# ============================================================
+#  TikTok Auto-Clipper – Einstellungen
+#  Alles hier kannst du direkt auf GitHub im Browser bearbeiten.
+# ============================================================
+
+# Spiele, aus denen virale Clips gesucht werden (exakter Twitch-Kategoriename).
+games:
+  - "Grand Theft Auto VI"
+  - "Grand Theft Auto V"
+
+# Optional: nur Clips von diesen Streamern (Twitch-Loginname, klein geschrieben).
+# Leer lassen = alle Streamer in den Spielen oben.
+# EMPFEHLUNG: Nur Streamer eintragen, die Clipping erlauben!
+streamers_allowlist: []
+
+# Diese Streamer werden NIE gepostet (z. B. wenn jemand Clipping verbietet).
+streamers_blocklist: []
+
+# Sprachen der Clips (Twitch-Streamsprache).
+languages: ["de", "en"]
+
+# Wie weit zurück nach Clips gesucht wird (Stunden).
+lookback_hours: 24
+
+# Mindestaufrufe, damit ein Clip als "viral" gilt.
+min_views: 300
+
+# Clip-Länge in Sekunden (TikTok: zu kurz = wenig Watchtime).
+min_duration: 8
+max_duration: 60
+
+# Wie viele Clips pro Lauf gepostet werden.
+clips_per_run: 1
+
+# Maximal so viele Clips pro Streamer innerhalb von 24h (Abwechslung).
+max_per_streamer_per_day: 2
+
+# TikTok-Modus:
+#   "inbox"  = Clip landet als Entwurf in deiner TikTok-App -> du tippst auf Posten
+#              (funktioniert sofort, ohne TikTok-App-Prüfung)
+#   "direct" = wird direkt veröffentlicht (öffentlich erst nach TikTok-App-Prüfung)
+tiktok_mode: "inbox"
+
+# Sichtbarkeit bei "direct": PUBLIC_TO_EVERYONE (nach Prüfung) oder SELF_ONLY (vor Prüfung)
+privacy_level: "SELF_ONLY"
+
+# Automatische Untertitel (Whisper). Modell: tiny / base / small (small = besser, langsamer)
+captions: true
+whisper_model: "small"
+
+# Caption-Vorlagen pro Sprache. Platzhalter: {title} {streamer} {game_tag}
+caption_templates:
+  de: "{title} 😂 | 🎥 twitch.tv/{streamer} #{game_tag} #gta6 #twitch #clips #fyp #deutsch"
+  en: "{title} 😂 | 🎥 twitch.tv/{streamer} #{game_tag} #gta6 #twitch #clips #fyp #viral"
