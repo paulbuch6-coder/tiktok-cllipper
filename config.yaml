@@ -11,9 +11,8 @@
 #   - "Grand Theft Auto VI"
 games:
   - "Grand Theft Auto VI"
-  - "Grand Theft Auto V"
 game_bonus: 4            # GTA-Release: GTA-Clips zählen 4x -> fast immer vorne
-only_focus_games: false  # true = NUR GTA-Clips, false = alle Kategorien der Top-Streamer
+only_focus_games: true   # GTA-Release: AUSSCHLIESSLICH GTA VI
 
 # Große deutsche Streamer (Twitch-Login, klein). Deren Top-Clips werden jeden Lauf geprüft.
 # Unbekannte Namen werden einfach ignoriert. Liste beliebig erweitern/kürzen.
