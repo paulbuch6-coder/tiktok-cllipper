@@ -9,8 +9,10 @@
 # Diese Woche: KEIN Spiele-Fokus -> alles, was viral geht (Just Chatting, FIFA/FC, IRL, Gaming …).
 # Ab GTA-Start (Do.) einfach wieder eintragen:
 #   - "Grand Theft Auto VI"
-games: []
-game_bonus: 1.5          # Clips aus den Fokus-Spielen zählen 1,5x so viel beim Ranking
+games:
+  - "Grand Theft Auto VI"
+  - "Grand Theft Auto V"
+game_bonus: 4            # GTA-Release: GTA-Clips zählen 4x -> fast immer vorne
 only_focus_games: false  # true = NUR GTA-Clips, false = alle Kategorien der Top-Streamer
 
 # Große deutsche Streamer (Twitch-Login, klein). Deren Top-Clips werden jeden Lauf geprüft.
@@ -41,7 +43,7 @@ top_streamers:
   - tanzverbot
 
 # Zusätzlich: die N deutschsprachigen Streams, die GERADE live die meisten Zuschauer haben.
-live_top_n: 25
+live_top_n: 40
 
 # Optional: NUR diese Streamer (überschreibt alles oben). Leer = aus.
 streamers_allowlist: []
@@ -53,10 +55,10 @@ streamers_blocklist: []
 languages: ["de"]
 
 # Wie weit zurück nach Clips gesucht wird (Stunden).
-lookback_hours: 24
+lookback_hours: 6        # nur brandaktuelle Clips (letzte 6 Std.)
 
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
-min_views: 200
+min_views: 80            # frische Clips haben noch wenig Aufrufe – Ranking nach Tempo
 
 # Clip-Länge der Twitch-Clips, die überhaupt infrage kommen (Sekunden).
 min_duration: 8
@@ -67,14 +69,14 @@ max_output_seconds: 40   # länger wird um den Höhepunkt herum gekürzt (15-35 
 max_start_trim: 4        # so viele Sekunden Leerlauf am Anfang dürfen max. weg
 
 # Postzeitpunkte (deutsche Zeit). Zu diesen Uhrzeiten kommen neue Clips.
-post_hours: [11, 13, 15, 17, 19, 21]
+post_hours: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]   # GTA-Release: stündlich
 
 # Wie viele Clips pro Lauf geschickt werden (zur Auswahl, je ein anderer Streamer).
 # Du postest davon nur den stärksten.
 clips_per_run: 3
 
 # Maximal so viele Clips pro Streamer innerhalb von 24h (Abwechslung).
-max_per_streamer_per_day: 2
+max_per_streamer_per_day: 4
 
 # TikTok-Modus:
 #   "manual" = Video + Beschreibung kommen per Push (ntfy) aufs Handy, du lädst selbst hoch.
@@ -111,6 +113,24 @@ hooks:
     - "He did NOT see that coming 💀"
     - "Wait for the end 😭"
     - "This actually just happened 😂"
+
+# Eigene Hooks/Vorlagen für bestimmte Spiele (exakter Twitch-Kategoriename).
+hooks_by_game:
+  "Grand Theft Auto VI":
+    - "GTA 6 ist endlich da und DAS passiert als Erstes 💀"
+    - "Die ersten Minuten in GTA 6 eskalieren komplett 😭"
+    - "Niemand hat mit DIESEM GTA 6 Moment gerechnet 😳"
+    - "GTA 6 Release und er dreht sofort durch 😂"
+    - "Das hat GTA 6 nicht verdient 💀"
+    - "Wartet bis zum Ende… GTA 6 ist krank 🔥"
+    - "Erster Eindruck von GTA 6: 😳😳"
+    - "GTA 6 Polizei ist einfach brutal 💀"
+
+caption_templates_by_game:
+  "Grand Theft Auto VI": |
+    {hook} {title}
+    {streamer} spielt GTA 6 deutsch | GTA 6 Release Reaktion
+    #gta6 #gtavi #{streamer_tag} #gta6deutsch #twitchclips
 
 # Vorlagen pro Sprache. Platzhalter:
 #   {hook} {title} {streamer} {streamer_tag} {game} {game_tag}

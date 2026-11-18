@@ -33,7 +33,7 @@ def save_state(state: list[dict]) -> None:
 
 
 def game_tag(name: str) -> str:
-    return {"Grand Theft Auto VI": "gta6", "Grand Theft Auto V": "gtarp",
+    return {"Grand Theft Auto VI": "gta6", "Grand Theft Auto V": "gta5",
             "Just Chatting": "twitchclips", "": "twitch"}.get(
         name, re.sub(r"[^a-z0-9]", "", name.lower()))
 
@@ -44,6 +44,8 @@ def score(clip: dict, cfg: dict | None = None, focus_games: set | None = None) -
     created = dt.datetime.fromisoformat(clip["created_at"].replace("Z", "+00:00"))
     age_h = max((dt.datetime.now(dt.timezone.utc) - created).total_seconds() / 3600, 0.5)
     s = clip["view_count"] / age_h
+    if age_h < 2:  # ganz frische Clips extra nach vorne (vor der Konkurrenz posten)
+        s *= 1.3
     if cfg and focus_games and clip.get("game_id") in focus_games:
         s *= float(cfg.get("game_bonus", 1.0))
     return s
@@ -136,6 +138,11 @@ def build_caption(cfg: dict, clip: dict, title: str) -> str:
     lang = clip.get("language", "en")
     tpl = cfg["caption_templates"].get(lang, cfg["caption_templates"]["en"])
     hooks = (cfg.get("hooks") or {}).get(lang) or (cfg.get("hooks") or {}).get("en") or [""]
+    gname = clip.get("_game_name", "")
+    if lang == "de" and gname in (cfg.get("caption_templates_by_game") or {}):
+        tpl = cfg["caption_templates_by_game"][gname]
+    if lang == "de" and (cfg.get("hooks_by_game") or {}).get(gname):
+        hooks = cfg["hooks_by_game"][gname]
     streamer = clip["broadcaster_name"]
     game = clip.get("_game_name", "") or "Twitch"
     text = tpl.format(hook=random.choice(hooks), title=title, streamer=streamer, game=game,

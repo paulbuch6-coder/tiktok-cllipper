@@ -5,7 +5,7 @@ on:
     # Alle 20 Minuten kurz anklopfen (GitHub lässt geplante Läufe oft ausfallen).
     # Ob wirklich ein Lauf fällig ist, entscheidet der "gate"-Job anhand von
     # post_hours in config.yaml (deutsche Zeit). Nachts passiert nichts.
-    - cron: "7,27,47 8-21 * * *"
+    - cron: "7,27,47 8-22 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

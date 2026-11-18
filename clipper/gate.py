@@ -42,7 +42,7 @@ def due(now: dt.datetime | None = None) -> tuple[bool, str]:
     last = last_run()
     if last and last.astimezone(TZ) >= slot - dt.timedelta(minutes=15):
         return False, f"{now:%H:%M} – Zeitpunkt {slot:%H:%M} schon erledigt"
-    if last and now - last.astimezone(TZ) < dt.timedelta(minutes=75):
+    if last and now - last.astimezone(TZ) < dt.timedelta(minutes=45):
         return False, f"{now:%H:%M} – letzter Lauf erst vor Kurzem"
     return True, f"{now:%H:%M} – Zeitpunkt {slot:%H:%M} ist fällig"
 
