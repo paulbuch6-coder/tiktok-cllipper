@@ -89,8 +89,12 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
             per_streamer[s["broadcaster"]] = per_streamer.get(s["broadcaster"], 0) + 1
 
     block = {s.lower() for s in cfg.get("streamers_blocklist") or []}
+    not_before = cfg.get("not_before")
+    nb = dt.datetime.fromisoformat(str(not_before)) if not_before else None
     seen, out = set(), []
     for c in clips:
+        if nb and dt.datetime.fromisoformat(c["created_at"].replace("Z", "+00:00")) < nb:
+            continue
         login = c["broadcaster_name"].lower()
         if (c["id"] in posted_ids or c["id"] in seen or login in block
                 or (allow_only and login not in allow_only)

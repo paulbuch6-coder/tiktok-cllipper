@@ -53,6 +53,9 @@ streamers_blocklist: []
 # Sprachen der Clips (Twitch-Streamsprache).
 languages: ["de"]
 
+# Nur Clips, die NACH diesem Zeitpunkt entstanden sind (leer = aus).
+not_before: "2026-11-18T12:00:00+01:00"   # GTA-VI-Release: nichts aus der Wartezeit davor
+
 # Wie weit zurück nach Clips gesucht wird (Stunden).
 lookback_hours: 6        # nur brandaktuelle Clips (letzte 6 Std.)
 
