@@ -58,7 +58,7 @@ languages: ["de"]
 lookback_hours: 6        # nur brandaktuelle Clips (letzte 6 Std.)
 
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
-min_views: 80            # frische Clips haben noch wenig Aufrufe – Ranking nach Tempo
+min_views: 30            # Release-Start: auch ganz frische Clips zulassen – Ranking nach Tempo
 
 # Clip-Länge der Twitch-Clips, die überhaupt infrage kommen (Sekunden).
 min_duration: 8
