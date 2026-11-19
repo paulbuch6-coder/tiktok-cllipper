@@ -116,23 +116,69 @@ hooks:
     - "Wait for the end 😭"
     - "This actually just happened 😂"
 
-# Eigene Hooks/Vorlagen für bestimmte Spiele (exakter Twitch-Kategoriename).
-hooks_by_game:
-  "Grand Theft Auto VI":
-    - "GTA 6 ist endlich da und DAS passiert als Erstes 💀"
-    - "Die ersten Minuten in GTA 6 eskalieren komplett 😭"
-    - "Niemand hat mit DIESEM GTA 6 Moment gerechnet 😳"
-    - "GTA 6 Release und er dreht sofort durch 😂"
-    - "Das hat GTA 6 nicht verdient 💀"
-    - "Wartet bis zum Ende… GTA 6 ist krank 🔥"
-    - "Erster Eindruck von GTA 6: 😳😳"
-    - "GTA 6 Polizei ist einfach brutal 💀"
-
-caption_templates_by_game:
-  "Grand Theft Auto VI": |
-    {hook} {title}
-    {streamer} spielt GTA 6 deutsch | GTA 6 Release Reaktion
-    #gta6 #gtavi #{streamer_tag} #gta6deutsch #twitchclips
+# ---------- BESCHREIBUNGEN (abwechslungsreich, aus dem echten Clip) ----------
+# Pro Clip wird zufällig kombiniert – und nichts wiederholt, was kürzlich dran war.
+# Platzhalter in "structures": {hook} {title} {quote} {streamer} {cta} {e} {game}
+#   {quote} = bester gesprochener Satz aus dem Clip, {title} = Clip-Titel
+caption_engine:
+  structures:
+    - "{hook}\n{title} {e}\n{cta}"
+    - "„{quote}“ {e}\n{streamer} hat es nicht kommen sehen\n{cta}"
+    - "{title} {e}\n{cta}"
+    - "POV: {title} {e}\n{cta}"
+    - "{hook}\n„{quote}“\n{cta}"
+    - "„{quote}“ – {streamer} {e}\n{hook}"
+    - "{streamer} in {game}: {title} {e}\n{cta}"
+    - "{hook}\n{cta}"
+  hooks:
+    - "Er hat NICHT damit gerechnet"
+    - "Wartet bis zum Ende"
+    - "Das ist gerade wirklich live passiert"
+    - "Chat ist komplett eskaliert"
+    - "Kein Mensch war darauf vorbereitet"
+    - "Ich kann nicht mehr"
+    - "Wie ist das bitte live passiert?!"
+    - "Er wusste sofort, dass es vorbei ist"
+    - "Das Ende…"
+    - "Bro hat einfach komplett verloren"
+    - "Achtet auf sein Gesicht"
+    - "Das Timing war einfach perfekt"
+    - "Das kann man sich nicht ausdenken"
+    - "So schnell kann's gehen"
+    - "Er hat es selbst nicht geglaubt"
+  ctas:
+    - "Hättest du's besser gemacht? 👇"
+    - "Ehrlich: 1–10? 👇"
+    - "Markier jemanden, der genau so spielt 😂"
+    - "Was hättest du gemacht? 👇"
+    - "Wer kennt's? 🙋‍♂️"
+    - "Schreib's in die Kommentare 👇"
+    - "Fail oder Skill? 👇"
+    - "Folgen für mehr davon 🎬"
+    - "Teil das mit deinem Squad 😂"
+    - "Wer hat's live gesehen? 👀"
+  emojis: ["💀", "😭", "😂", "😳", "🔥", "🤯", "😮‍💨", "🫠"]
+  keyword_lines:
+    - "{streamer} {game} Clip deutsch"
+    - "{game} deutsch – {streamer} Twitch Highlight"
+    - "{streamer} Twitch Clip | {game}"
+  max_hashtags: 5
+  hashtags_core: ["#twitchclips"]
+  hashtags_pool: ["#twitchdeutschland", "#fürdich", "#fyp", "#streamer", "#lustig", "#gaming"]
+  games:
+    "Grand Theft Auto VI":
+      keyword: "GTA 6"
+      hashtags_core: ["#gta6"]
+      hashtags_pool: ["#gtavi", "#gta6deutsch", "#gta6clips", "#vicecity", "#gaming", "#fürdich", "#twitchclips"]
+      hooks:
+        - "GTA 6 ist einfach krank"
+        - "Die GTA 6 Polizei kennt keine Gnade"
+        - "Vice City hat ihn komplett zerstört"
+        - "Nur in GTA 6 passiert sowas"
+        - "GTA 6 Physik ist nicht von dieser Welt"
+        - "Niemand hat mit DIESEM GTA 6 Moment gerechnet"
+        - "So eskaliert GTA 6 in 10 Sekunden"
+        - "Rockstar, was habt ihr da gebaut?!"
 
 # Vorlagen pro Sprache. Platzhalter:
 #   {hook} {title} {streamer} {streamer_tag} {game} {game_tag}

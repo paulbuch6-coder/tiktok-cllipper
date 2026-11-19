@@ -140,6 +140,9 @@ def pick_title(clip: dict, words: list) -> str:
 
 def build_caption(cfg: dict, clip: dict, title: str) -> str:
     lang = clip.get("language", "en")
+    if lang == "de" and cfg.get("caption_engine"):
+        from . import captions
+        return captions.build(cfg, clip, title, clip.get("_words") or [])
     tpl = cfg["caption_templates"].get(lang, cfg["caption_templates"]["en"])
     hooks = (cfg.get("hooks") or {}).get(lang) or (cfg.get("hooks") or {}).get("en") or [""]
     gname = clip.get("_game_name", "")
@@ -314,6 +317,7 @@ def produce(cfg: dict, src: Path, clip: dict, language: str | None,
     # Wörter auf den neuen Zeitbereich verschieben
     words = [(a - start, e - start, w) for a, e, w in words if e > start and a < start + length]
     words = [(max(a, 0.0), min(e, length), w) for a, e, w in words]
+    clip["_words"] = words
     title = pick_title(clip, words)
     ass = video.make_ass(words, title, length, src.with_suffix(".ass"),
                          credit=f"twitch.tv/{clip['broadcaster_name']}")
