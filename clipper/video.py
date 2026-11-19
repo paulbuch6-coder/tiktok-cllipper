@@ -49,12 +49,14 @@ def clean_title(text: str) -> str:
 
 
 def make_ass(words: list[tuple[float, float, str]], title: str, duration: float,
-             path: Path, credit: str = "") -> Path:
+             path: Path, credit: str = "", split: bool = False) -> Path:
     """ASS-Datei im TikTok-Look:
     - Titel oben: schwarze Anton-Schrift auf weißem Balken (sofort lesbar, auch als Thumbnail)
     - Untertitel: Montserrat Black, weiß mit dickem Rand, aktives Wort gelb + kleiner Pop
     - Credit: twitch.tv/streamer klein unter dem Video
     """
+    # Split: Titel auf der Naht zwischen Facecam und Gameplay, Untertitel im unteren Drittel
+    t_mv, c_mv, r_mv = (TOP_H - 75, 360, 50) if split else (190, 400, 520)
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -64,9 +66,9 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Title,Anton,92,&H00101010,&H00101010,&H00FFFFFF,&H00000000,0,0,0,0,100,100,1,0,3,22,0,8,90,90,250,1
-Style: Cap,Montserrat Black,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,9,4,2,60,60,420,1
-Style: Credit,Montserrat Black,38,&H40FFFFFF,&H40FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,2,0,1,3,0,2,60,60,555,1
+Style: Title,Anton,92,&H00101010,&H00101010,&H00FFFFFF,&H00000000,0,0,0,0,100,100,1,0,3,22,0,8,90,90,{t_mv},1
+Style: Cap,Montserrat Black,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,9,4,2,60,60,{c_mv},1
+Style: Credit,Montserrat Black,38,&H40FFFFFF,&H40FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,2,0,1,3,0,2,60,60,{r_mv},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -164,16 +166,104 @@ def save_cover(video_file: Path, ms: int, out: Path) -> Path:
     return out
 
 
+MODEL = Path(__file__).resolve().parent.parent / "models" / "face_detection_yunet_2023mar.onnx"
+TOP_H = 700            # Höhe der Facecam oben im Split-Layout
+BOT_H = H - TOP_H      # Gameplay unten
+
+
+def detect_facecam(src: Path, start: float = 0.0, length: float | None = None,
+                   samples: int = 12) -> tuple[int, int, int, int] | None:
+    """Sucht die Facecam des Streamers: ein Gesicht, das in vielen Frames an
+    (fast) derselben Stelle ist. Gibt den Ausschnitt (x, y, w, h) im Original
+    zurück – passend zum Seitenverhältnis des oberen Bereichs – oder None."""
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        return None
+    if not MODEL.exists():
+        return None
+    dur = length or (probe_duration(src) - start)
+    sw, sh = 960, 540
+    det = cv2.FaceDetectorYN.create(str(MODEL), "", (sw, sh), 0.7, 0.3, 50)
+    faces_per_frame = []
+    for i in range(samples):
+        t = start + dur * (i + 0.5) / samples
+        raw = subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", str(src), "-frames:v", "1",
+             "-vf", f"scale={sw}:{sh}", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
+            capture_output=True).stdout
+        if len(raw) != sw * sh * 3:
+            continue
+        img = np.frombuffer(raw, np.uint8).reshape(sh, sw, 3)
+        _, faces = det.detect(img)
+        faces_per_frame.append([] if faces is None else [f[:4] for f in faces])
+    n = len(faces_per_frame)
+    if n < 4:
+        return None
+    # Kandidaten clustern: Gesichter an fast gleicher Position in vielen Frames
+    cands = [f for fr in faces_per_frame for f in fr]
+    best, best_hits = None, 0
+    for c in cands:
+        cx, cy = c[0] + c[2] / 2, c[1] + c[3] / 2
+        hits, boxes = 0, []
+        for fr in faces_per_frame:
+            near = [f for f in fr if abs(f[0] + f[2] / 2 - cx) < sw * 0.04
+                    and abs(f[1] + f[3] / 2 - cy) < sh * 0.06]
+            if near:
+                hits += 1
+                boxes.append(near[0])
+        if hits > best_hits:
+            best, best_hits = boxes, hits
+    if not best or best_hits < max(4, int(n * 0.45)):
+        return None
+    fx, fy, fw, fh = (float(np.median([b[k] for b in best])) for k in range(4))
+    cx, cy = fx + fw / 2, fy + fh / 2
+    # Facecams sitzen fast immer am Rand; Gesichter mitten im Bild sind meist Spielfiguren
+    if 0.3 * sw < cx < 0.7 * sw and 0.25 * sh < cy < 0.75 * sh:
+        return None
+    if fw > sw * 0.35:  # riesiges Gesicht = Vollbild-Kamera, kein Overlay
+        return None
+    # Ausschnitt um das Gesicht, im Seitenverhältnis des oberen Bereichs
+    aspect = W / TOP_H
+    cw = min(fw * 3.4, sw)
+    ch = cw / aspect
+    x = min(max(cx - cw / 2, 0), sw - cw)
+    y = min(max(cy - ch * 0.45, 0), sh - ch)
+    # zurück auf Originalauflösung
+    ow, oh = (int(v) for v in subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=width,height", "-of", "csv=p=0", str(src)],
+        capture_output=True, text=True).stdout.strip().split(",")[:2])
+    fxs, fys = ow / sw, oh / sh
+    box = (int(x * fxs) // 2 * 2, int(y * fys) // 2 * 2,
+           int(cw * fxs) // 2 * 2, int(ch * fys) // 2 * 2)
+    print(f"Facecam erkannt in {best_hits}/{n} Frames: {box}")
+    return box
+
+
 def render(src: Path, ass: Path | None, out: Path, start: float = 0.0,
-           length: float | None = None) -> Path:
-    """Hochformat: unscharfer, gezoomter Hintergrund + Originalvideo mittig + Untertitel."""
-    vf = (
-        f"[0:v]split=2[a][b];"
-        f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
-        f"boxblur=25:2,eq=brightness=-0.08[bg];"
-        f"[b]scale={int(W * 1.15)}:-2,crop={W}:ih[fg];"
-        f"[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1"
-    )
+           length: float | None = None,
+           facecam: tuple[int, int, int, int] | None = None) -> Path:
+    """Hochformat.
+    Mit Facecam: Facecam groß oben, Gameplay bildschirmfüllend unten (Split-Layout).
+    Ohne: unscharfer Hintergrund + vergrößertes Video mittig."""
+    if facecam:
+        x, y, w, h = facecam
+        vf = (
+            f"[0:v]split=2[a][b];"
+            f"[a]crop={w}:{h}:{x}:{y},scale={W}:{TOP_H},setsar=1[top];"
+            f"[b]crop=trunc(ih*{W}/{BOT_H}/2)*2:ih:(iw-ow)/2:0,scale={W}:{BOT_H},setsar=1[bot];"
+            f"[top][bot]vstack=inputs=2"
+        )
+    else:
+        vf = (
+            f"[0:v]split=2[a][b];"
+            f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+            f"boxblur=25:2,eq=brightness=-0.08[bg];"
+            f"[b]scale={int(W * 1.3)}:-2,crop={W}:ih[fg];"
+            f"[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1"
+        )
     if ass:
         vf += f",subtitles='{ass.as_posix()}':fontsdir='{FONTS.as_posix()}'"
     vf += "[v]"

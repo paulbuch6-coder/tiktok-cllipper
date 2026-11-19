@@ -91,6 +91,10 @@ tiktok_mode: "manual"
 # Sichtbarkeit bei "direct": PUBLIC_TO_EVERYONE (nach Prüfung) oder SELF_ONLY (vor Prüfung)
 privacy_level: "SELF_ONLY"
 
+# Split-Layout: Facecam des Streamers wird automatisch erkannt -> groß oben, Gameplay unten.
+# Ohne erkannte Facecam: Standard-Layout (Video mittig, unscharfer Hintergrund).
+split_layout: true
+
 # Automatische Untertitel (Whisper). Modell: tiny / base / small (small = besser, langsamer)
 captions: true
 whisper_model: "medium"   # medium = deutlich besser bei deutschem Slang

@@ -138,6 +138,22 @@ def pick_title(clip: dict, words: list) -> str:
     return (spoken[:70].rsplit(" ", 1)[0] + "…") if len(spoken) > 70 else spoken
 
 
+def pick_overlay_title(cfg: dict, clip: dict, title: str, words: list) -> str:
+    """Titel IM Video: muss auch für Leute verständlich sein, die den Streamer nicht kennen.
+    Twitch-Titel nur, wenn er aussagekräftig ist (>= 4 Wörter), sonst bestes Zitat, sonst Hook."""
+    from .captions import best_quote
+    t = (clip.get("title") or "").strip()
+    if good_title(t) and len(t.split()) >= 4:
+        return t
+    q = best_quote(words)
+    if q and 3 <= len(q.split()) <= 9:
+        return f"„{q}“"
+    cc = cfg.get("caption_engine") or {}
+    hooks = ((cc.get("games") or {}).get(clip.get("_game_name", ""), {}).get("hooks")
+             or cc.get("hooks") or [])
+    return random.choice(hooks) if hooks else title
+
+
 def build_caption(cfg: dict, clip: dict, title: str) -> str:
     lang = clip.get("language", "en")
     if lang == "de" and cfg.get("caption_engine"):
@@ -319,10 +335,19 @@ def produce(cfg: dict, src: Path, clip: dict, language: str | None,
     words = [(max(a, 0.0), min(e, length), w) for a, e, w in words]
     clip["_words"] = words
     title = pick_title(clip, words)
-    ass = video.make_ass(words, title, length, src.with_suffix(".ass"),
-                         credit=f"twitch.tv/{clip['broadcaster_name']}")
+    overlay = pick_overlay_title(cfg, clip, title, words)
+    facecam = None
+    if cfg.get("split_layout", True):
+        try:
+            facecam = video.detect_facecam(src, start, length)
+        except Exception as e:
+            print("Facecam-Erkennung übersprungen:", e)
+    print("Layout:", "Split (Facecam oben)" if facecam else "Standard", "| Titel im Video:", overlay)
+    ass = video.make_ass(words, overlay, length, src.with_suffix(".ass"),
+                         credit=f"twitch.tv/{clip['broadcaster_name']}", split=bool(facecam))
     OUT.mkdir(exist_ok=True)
-    mp4 = video.render(src, ass, OUT / f"{name}.mp4", start=start, length=length)
+    mp4 = video.render(src, ass, OUT / f"{name}.mp4", start=start, length=length,
+                       facecam=facecam)
     cover_ms = int(min(max(loud_ms - start * 1000, 0), max(length * 1000 - 500, 0)))
     video.save_cover(mp4, cover_ms, OUT / f"{name}_thumbnail.jpg")
     print(f"Titel: {title} | Thumbnail bei {cover_ms / 1000:.1f}s")
