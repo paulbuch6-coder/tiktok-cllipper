@@ -1,3 +1,32 @@
+# ===== FORMAT =====
+# "compilation" = 1 Video mit den Top-5-Momenten (#5 -> #1) pro Lauf  <- aktiv
+# "single"      = einzelne Clips (3 zur Auswahl pro Lauf, altes Verhalten)
+mode: "compilation"
+
+compilation:
+  moments: 5                 # so viele Momente pro Video
+  min_moments: 3             # weniger gefunden -> kein Video
+  moment_max_seconds: 15     # Länge pro Moment (um den Höhepunkt herum)
+  max_per_streamer: 2        # max. Momente desselben Streamers in einem Video
+  teaser_seconds: 2.0        # Vorschau auf #1 ganz am Anfang
+  game_keyword: "GTA 6"
+  teaser_title: "TOP {n} {game} MOMENTE HEUTE – WARTET AUF #1"
+  caption_openers:
+    - "Die {game} Momente des Tages 😳 Wartet auf #1…"
+    - "Top 5 {game} Momente von heute 💀"
+    - "Das ist heute in {game} passiert 😭"
+    - "Die krassesten {game} Clips von heute – #1 ist unfassbar 🤯"
+    - "Deutsche Streamer vs. {game} – die Top 5 von heute 🔥"
+  caption_ctas:
+    - "Welcher war euer Favorit? 👇"
+    - "Wer hätte Platz 1 verdient? 👇"
+    - "Schreibt eure Nummer in die Kommentare 👇"
+    - "Folgen für jeden Tag die besten Momente 🎬"
+    - "Falsche Reihenfolge? Diskutiert 👇"
+  max_hashtags: 6
+  hashtags_core: ["#gta6"]
+  hashtags_pool: ["#gtavi", "#gta6deutsch", "#gta6clips", "#twitchclips", "#vicecity", "#gaming", "#fürdich"]
+
 # ============================================================
 #  TikTok Auto-Clipper – Einstellungen
 #  Alles hier kannst du direkt auf GitHub im Browser bearbeiten.
@@ -16,6 +45,9 @@ only_focus_games: true   # GTA-Release: AUSSCHLIESSLICH GTA VI
 
 # Große deutsche Streamer (Twitch-Login, klein). Deren Top-Clips werden jeden Lauf geprüft.
 # Unbekannte Namen werden einfach ignoriert. Liste beliebig erweitern/kürzen.
+# Top-Format: NUR Clips von diesen Streamern verwenden.
+only_top_streamers: true
+
 top_streamers:
   - montanablack88
   - papaplatte
@@ -33,6 +65,9 @@ top_streamers:
   - rumathra
   - noway4u_sir
   - stegi
+  - xrohat
+  - bastighg
+  - herrbergmann
   - mckytv
   - staiy
   - amar
@@ -42,7 +77,7 @@ top_streamers:
   - tanzverbot
 
 # Zusätzlich: die N deutschsprachigen Streams, die GERADE live die meisten Zuschauer haben.
-live_top_n: 40
+live_top_n: 0             # Top-Format: keine Zufalls-Streams, nur die Liste oben
 
 # Optional: NUR diese Streamer (überschreibt alles oben). Leer = aus.
 streamers_allowlist: []
@@ -54,13 +89,13 @@ streamers_blocklist: []
 languages: ["de"]
 
 # Nur Clips, die NACH diesem Zeitpunkt entstanden sind (leer = aus).
-not_before: "2026-11-18T12:00:00+01:00"   # GTA-VI-Release: nichts aus der Wartezeit davor
+not_before: ""
 
 # Wie weit zurück nach Clips gesucht wird (Stunden).
-lookback_hours: 6        # nur brandaktuelle Clips (letzte 6 Std.)
+lookback_hours: 24
 
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
-min_views: 30            # Release-Start: auch ganz frische Clips zulassen – Ranking nach Tempo
+min_views: 100
 
 # Clip-Länge der Twitch-Clips, die überhaupt infrage kommen (Sekunden).
 min_duration: 8
@@ -71,7 +106,7 @@ max_output_seconds: 40   # länger wird um den Höhepunkt herum gekürzt (15-35 
 max_start_trim: 4        # so viele Sekunden Leerlauf am Anfang dürfen max. weg
 
 # Postzeitpunkte (deutsche Zeit). Zu diesen Uhrzeiten kommen neue Clips.
-post_hours: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]   # GTA-Release: stündlich
+post_hours: [13, 19]     # 2 Top-Videos pro Tag
 
 # Wie viele Clips pro Lauf geschickt werden (zur Auswahl, je ein anderer Streamer).
 # Du postest davon nur den stärksten.

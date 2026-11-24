@@ -81,6 +81,8 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
             print("Streamer übersprungen:", bid, e)
 
     allow_only = {s.lower() for s in (cfg.get("streamers_allowlist") or [])}
+    if cfg.get("only_top_streamers"):
+        allow_only |= {s.lower() for s in (cfg.get("top_streamers") or [])}
     posted_ids = {s["id"] for s in state}
     day_ago = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
     per_streamer: dict[str, int] = {}
@@ -381,6 +383,10 @@ def main() -> None:
         return
 
     mode = "dry-run" if args.dry_run else cfg.get("tiktok_mode", "manual")
+    if cfg.get("mode") == "compilation":
+        from .compile import run_compilation
+        run_compilation(cfg, args, state, candidates, mode)
+        return
     token = None
     if mode in ("inbox", "direct"):
         from . import tiktok

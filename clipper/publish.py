@@ -87,10 +87,12 @@ def notify() -> None:
         _summary("⚠️ **Keine Push-Nachricht:** Secret `NTFY_TOPIC` fehlt oder enthält ungültige Zeichen.")
         return
     test = "🧪 TEST – " if any(c.get("test") for c in new) else ""
+    single_top = len(new) == 1 and str(new[0].get("id", "")).startswith("top")
     lines = [f"{i + 1}. {c['streamer']} – {c['views']:,} Aufrufe".replace(",", ".")
              for i, c in enumerate(new)]
     body = "\n".join(lines) + "\n\nAntippen → Clip-Seite öffnen → speichern & Beschreibung kopieren"
-    title = f"{test}🎬 {len(new)} neue Clips bereit"
+    title = (f"{test}🔥 Neues Top-Video bereit – jetzt posten!" if single_top
+             else f"{test}🎬 {len(new)} neue Clips bereit")
     # Mehrere Varianten: falls ntfy eine ablehnt, geht die nächste, einfachere raus.
     variants = [
         {"title": title, "click": page, "tags": "movie_camera",
