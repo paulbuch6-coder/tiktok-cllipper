@@ -48,6 +48,7 @@
   .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
          gap: 10px; }
   .row a { color: var(--accent2); font-size: 13px; }
+  .row a.fl { font-size: 15px; font-weight: 700; }
   .empty { color: var(--muted); text-align: center; margin-top: 40px; }
   .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
            transform: translateX(-50%); background: #fff; color: #000; padding: 10px 16px;
@@ -61,6 +62,8 @@
   <h1>Clip<span>Drop</span></h1>
   <button class="reload" onclick="load()">↻ Neu laden</button>
 </header>
+<p class="small" id="inapp" style="display:none;margin:12px 0;padding:10px;border:1px solid var(--line);border-radius:10px">
+  ⚠️ Du bist in einem App-internen Browser. Falls Speichern nicht klappt: oben auf ⋯ / Teilen tippen → <b>„In Safari öffnen“</b>.</p>
 <main id="list"><p class="empty">Lade Clips …</p></main>
 <div class="toast" id="toast"></div>
 
@@ -89,35 +92,55 @@ function batchLabel(iso) {
          " · " + d.toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit"}) + " Uhr";
 }
 
+const files = {};  // fertig geladene Videos (File-Objekte)
+
 async function prefetch(c) {
   if (blobs[c.id]) return blobs[c.id];
   blobs[c.id] = fetch("clips/" + c.file).then(r => {
     if (!r.ok) throw new Error(r.status);
     return r.blob();
-  }).then(b => new File([b], `${c.streamer}_${c.option}.mp4`, {type: "video/mp4"}));
+  }).then(b => {
+    const f = new File([b], `${c.streamer.replace(/[^\w-]+/g, "_").slice(0, 40)}.mp4`, {type: "video/mp4"});
+    files[c.id] = f;
+    return f;
+  });
+  blobs[c.id].catch(() => { delete blobs[c.id]; });
   return blobs[c.id];
 }
 
+function setReady(btn) {
+  btn.disabled = false; btn.classList.add("ok"); btn.textContent = "📲 Speichern / Teilen";
+}
+
+// Schritt 1: laden. Schritt 2 (Video ist da): Teilen-Menü SOFORT öffnen –
+// iPhone-Safari erlaubt das Teilen nur direkt nach dem Tippen, nicht nach langem Laden.
 async function share(c, btn) {
+  const f = files[c.id];
+  if (!f) {
+    btn.disabled = true; btn.textContent = "⏳ Lädt …";
+    try { await prefetch(c); setReady(btn); toast("Video geladen – jetzt nochmal tippen"); }
+    catch (e) { btn.disabled = false; btn.textContent = "⬇️ Video laden"; toast("Laden fehlgeschlagen – nochmal versuchen"); }
+    return;
+  }
   try {
-    btn.disabled = true; btn.textContent = "Lädt …";
-    const file = await prefetch(c);
-    if (navigator.canShare && navigator.canShare({files: [file]})) {
-      btn.disabled = false; btn.textContent = "⬇️ Speichern / Teilen";
-      await navigator.share({files: [file]});
+    if (navigator.canShare && navigator.canShare({files: [f]})) {
+      await navigator.share({files: [f]});
       return;
     }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(file); a.download = file.name;
-    document.body.appendChild(a); a.click(); a.remove();
-    toast("Download gestartet");
+    saveFile(c);
   } catch (e) {
     if (e && e.name === "AbortError") return;
-    if (e && e.name === "NotAllowedError") { toast("Video bereit – nochmal tippen"); return; }
-    window.open("clips/" + c.file, "_blank");
-  } finally {
-    btn.disabled = false; btn.textContent = "⬇️ Speichern / Teilen";
+    saveFile(c);
   }
+}
+
+// Ersatzweg: als Datei herunterladen (iPhone: landet in Dateien -> Downloads)
+function saveFile(c) {
+  const a = document.createElement("a");
+  a.href = files[c.id] ? URL.createObjectURL(files[c.id]) : "clips/" + c.file;
+  a.download = c.file;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("Download gestartet – in Dateien › Downloads");
 }
 
 async function copy(c, btn) {
@@ -160,20 +183,24 @@ function render(clips) {
       <video controls playsinline preload="none" poster="clips/${esc(c.thumb)}" src="clips/${esc(c.file)}"></video>
       <div class="caption">${esc(c.caption)}</div>
       <div class="btns">
-        <button class="b dl">⬇️ Speichern / Teilen</button>
+        <button class="b dl">⬇️ Video laden</button>
         <button class="b alt cp">📋 Beschreibung</button>
       </div>
+      <div class="row"><a href="clips/${esc(c.file)}" download class="fl">📁 In Dateien laden</a>
+        <span class="small">Klappt das Teilen nicht? Hier tippen.</span></div>
       <div class="row">
         <span class="small">Titelbild: Sekunde ${c.cover_s}</span>
         <button class="reload mk">${done[c.id] ? "↩︎ Nicht gepostet" : "✓ Gepostet"}</button>
       </div>
       <div class="row"><a href="${esc(c.source)}" target="_blank" rel="noopener">Original auf Twitch ↗</a>
         <a href="clips/${esc(c.file)}" target="_blank">Video direkt öffnen ↗</a></div>`;
-    card.querySelector(".dl").onclick = e => share(c, e.currentTarget);
+    const dl = card.querySelector(".dl");
+    dl.onclick = e => share(c, e.currentTarget);
+    if (files[c.id]) setReady(dl);
     card.querySelector(".cp").onclick = e => copy(c, e.currentTarget);
     card.querySelector(".mk").onclick = e => toggleDone(c, card, e.currentTarget);
     list.appendChild(card);
-    if (i < 3 && !done[c.id]) prefetch(c).catch(() => {});  // neueste vorladen -> Teilen klappt sofort
+    if (i < 2 && !done[c.id]) prefetch(c).then(() => setReady(dl)).catch(() => {});  // neueste vorladen
   });
 }
 
@@ -184,6 +211,10 @@ async function load() {
   } catch (e) {
     document.getElementById("list").innerHTML = '<p class="empty">Konnte Clips nicht laden. Später nochmal versuchen.</p>';
   }
+}
+if (/(FBAN|FBAV|Instagram|GitHub|ntfy|; wv\))/i.test(navigator.userAgent) ||
+    (/iPhone|iPad/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent))) {
+  document.getElementById("inapp").style.display = "block";
 }
 load();
 </script>

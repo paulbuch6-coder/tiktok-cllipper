@@ -1,0 +1,42 @@
+name: Clip-Seite aktualisieren
+
+# Veröffentlicht die Clip-Seite neu, wenn sich docs/ ändert (ohne neuen Clipper-Lauf).
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: clipper
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bisherige Clips laden
+        uses: actions/cache/restore@v4
+        with:
+          path: site/clips
+          key: site-none
+          restore-keys: site-
+      - name: Seite zusammenbauen
+        run: |
+          mkdir -p site/clips
+          if [ -f site/clips/clips.json ]; then cp site/clips/clips.json site/clips.json; else echo '[]' > site/clips.json; fi
+          cp -r docs/. site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
