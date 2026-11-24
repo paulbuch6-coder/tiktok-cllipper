@@ -93,6 +93,10 @@ only_focus_games: true   # GTA-Release: AUSSCHLIESSLICH GTA VI
 # Unbekannte Namen werden einfach ignoriert. Liste beliebig erweitern/kürzen.
 # Top-Format: NUR Clips von diesen Streamern verwenden.
 only_top_streamers: true
+# Reicht es nicht für 5 Momente, mit anderen deutschen GTA-6-Clips auffüllen.
+# Top-Streamer haben trotzdem Vorrang (ihre Clips zählen x-fach im Ranking).
+top_streamers_backfill: true
+top_streamer_bonus: 3.0
 
 top_streamers:
   - montanablack88
@@ -123,7 +127,7 @@ top_streamers:
   - tanzverbot
 
 # Zusätzlich: die N deutschsprachigen Streams, die GERADE live die meisten Zuschauer haben.
-live_top_n: 0             # Top-Format: keine Zufalls-Streams, nur die Liste oben
+live_top_n: 15            # zusätzlich die 15 größten deutschen Live-Streams (zum Auffüllen)
 
 # Optional: NUR diese Streamer (überschreibt alles oben). Leer = aus.
 streamers_allowlist: []
@@ -138,7 +142,7 @@ languages: ["de"]
 not_before: ""
 
 # Wie weit zurück nach Clips gesucht wird (Stunden).
-lookback_hours: 24
+lookback_hours: 30
 
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
 min_views: 100

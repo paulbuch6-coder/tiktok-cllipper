@@ -48,6 +48,10 @@ def score(clip: dict, cfg: dict | None = None, focus_games: set | None = None) -
         s *= 1.3
     if cfg and focus_games and clip.get("game_id") in focus_games:
         s *= float(cfg.get("game_bonus", 1.0))
+    if cfg and cfg.get("top_streamers_backfill"):
+        tops = {x.lower() for x in (cfg.get("top_streamers") or [])}
+        if clip.get("broadcaster_name", "").lower() in tops:
+            s *= float(cfg.get("top_streamer_bonus", 3.0))
     return s
 
 
@@ -81,7 +85,7 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
             print("Streamer übersprungen:", bid, e)
 
     allow_only = {s.lower() for s in (cfg.get("streamers_allowlist") or [])}
-    if cfg.get("only_top_streamers"):
+    if cfg.get("only_top_streamers") and not cfg.get("top_streamers_backfill"):
         allow_only |= {s.lower() for s in (cfg.get("top_streamers") or [])}
     posted_ids = {s["id"] for s in state}
     day_ago = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
