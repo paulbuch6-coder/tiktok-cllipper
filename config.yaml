@@ -142,7 +142,7 @@ languages: ["de"]
 not_before: ""
 
 # Wie weit zurück nach Clips gesucht wird (Stunden).
-lookback_hours: 30
+lookback_hours: 48        # Ranking bevorzugt trotzdem frische Clips (Aufrufe pro Stunde)
 
 # Mindestaufrufe, damit ein Clip als "viral" gilt.
 min_views: 100
