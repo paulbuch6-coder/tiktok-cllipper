@@ -350,7 +350,8 @@ def produce(cfg: dict, src: Path, clip: dict, language: str | None,
             print("Facecam-Erkennung übersprungen:", e)
     print("Layout:", "Split (Facecam oben)" if facecam else "Standard", "| Titel im Video:", overlay)
     ass = video.make_ass(words, overlay, length, src.with_suffix(".ass"),
-                         credit=f"twitch.tv/{clip['broadcaster_name']}", split=bool(facecam))
+                         credit=(f"twitch.tv/{clip['broadcaster_name']}" if cfg.get("credit_overlay") else ""),
+                         split=bool(facecam))
     OUT.mkdir(exist_ok=True)
     mp4 = video.render(src, ass, OUT / f"{name}.mp4", start=start, length=length,
                        facecam=facecam)
@@ -414,7 +415,7 @@ def main() -> None:
         try:
             src = video.download(clip["url"], work)
             if cfg.get("nsfw_filter", True):
-                bad, why = video.nsfw_check(src)
+                bad, why = video.nsfw_check(src, strict=cfg.get("nsfw_strict", True))
                 if bad:
                     print("⛔ Übersprungen (Nacktheit erkannt):", why)
                     continue

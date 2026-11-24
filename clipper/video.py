@@ -282,7 +282,12 @@ NSFW_CLASSES = {"FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENIT
 _nude_detector = None
 
 
-def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.45) -> tuple[bool, str]:
+SUGGESTIVE_CLASSES = {"FEMALE_BREAST_COVERED", "BUTTOCKS_COVERED", "FEMALE_GENITALIA_COVERED"}
+
+
+def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.35,
+               strict: bool = True, suggestive_score: float = 0.55,
+               suggestive_frames: int = 3) -> tuple[bool, str]:
     """Prüft Stichproben-Frames auf Nacktheit (auch im Spiel – TikTok unterscheidet nicht).
     Gibt (problematisch?, Begründung) zurück."""
     global _nude_detector
@@ -293,6 +298,7 @@ def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.45) -> tuple[b
     if _nude_detector is None:
         _nude_detector = NudeDetector()
     dur = probe_duration(src)
+    hits_suggestive = 0
     tmp = src.parent / "_nsfw"
     tmp.mkdir(exist_ok=True)
     try:
@@ -303,9 +309,16 @@ def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.45) -> tuple[b
                             "-frames:v", "1", "-vf", "scale=960:-2", str(f)], check=False)
             if not f.exists():
                 continue
+            frame_suggestive = False
             for d in _nude_detector.detect(str(f)):
                 if d.get("class") in NSFW_CLASSES and d.get("score", 0) >= threshold:
                     return True, f"{d['class']} ({d['score']:.2f}) bei {t:.1f}s"
+                if strict and d.get("class") in SUGGESTIVE_CLASSES and d.get("score", 0) >= suggestive_score:
+                    frame_suggestive = True
+            if frame_suggestive:
+                hits_suggestive += 1
+                if hits_suggestive >= suggestive_frames:
+                    return True, f"anzüglich in {hits_suggestive} Frames (bis {t:.1f}s)"
     finally:
         import shutil as _sh
         _sh.rmtree(tmp, ignore_errors=True)

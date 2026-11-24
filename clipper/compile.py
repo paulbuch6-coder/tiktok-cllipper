@@ -49,6 +49,8 @@ def _segment(cfg: dict, src: Path, words: list, loud_ms: int, start: float, leng
             facecam = video.detect_facecam(src, start, length)
         except Exception as e:
             print("Facecam-Erkennung übersprungen:", e)
+    if not cfg.get("credit_overlay"):
+        credit = ""  # sieht für TikTok wie ein Wasserzeichen aus -> Credit nur in der Beschreibung
     ass = video.make_ass(seg_words, title, length, out.with_suffix(".ass"), credit=credit,
                          split=bool(facecam))
     video.render(src, ass, out, start=start, length=length, facecam=facecam)
@@ -129,7 +131,7 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
         try:
             src = video.download(clip["url"], work)
             if cfg.get("nsfw_filter", True):
-                bad, why = video.nsfw_check(src)
+                bad, why = video.nsfw_check(src, strict=cfg.get("nsfw_strict", True))
                 if bad:
                     print("⛔ Übersprungen (Nacktheit erkannt):", why)
                     continue

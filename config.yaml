@@ -130,9 +130,16 @@ privacy_level: "SELF_ONLY"
 # Jeder Clip wird vor der Verwendung auf Nacktheit geprüft (auch Spielgrafik!) und
 # bei Treffern übersprungen. TikTok entfernt solche Videos und drosselt den Account.
 nsfw_filter: true
+# Streng: auch BEKLEIDET-anzügliche Szenen (Stripclub, knappe Outfits) aussortieren.
+# Kann gelegentlich harmlose Clips mit aussortieren – lieber einer zu viel als ein Verstoß.
+nsfw_strict: true
+
+# "twitch.tv/name" im Video einblenden? NEIN: TikTok wertet das wie ein Wasserzeichen/Logo
+# -> "nicht originell". Der Streamer wird stattdessen in der Beschreibung genannt.
+credit_overlay: false
 # Clips mit diesen Wörtern im Twitch-Titel werden gar nicht erst genommen.
 blocked_title_words: ["strip", "nackt", "nude", "titten", "boobs", "brüste", "sex", "porn",
-                      "puff", "bordell", "hure", "nsfw", "18+", "oben ohne", "lapdance", "onlyfans"]
+                      "puff", "bordell", "hure", "nsfw", "18+", "oben ohne", "lapdance", "onlyfans", "stripper", "tänzerin", "twerk", "bikini", "sexy", "lapdance"]
 
 # Split-Layout: Facecam des Streamers wird automatisch erkannt -> groß oben, Gameplay unten.
 # Ohne erkannte Facecam: Standard-Layout (Video mittig, unscharfer Hintergrund).
