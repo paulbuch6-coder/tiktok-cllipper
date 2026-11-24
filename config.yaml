@@ -10,6 +10,52 @@ compilation:
   max_per_streamer: 2        # max. Momente desselben Streamers in einem Video
   teaser_seconds: 2.0        # Vorschau auf #1 ganz am Anfang
   game_keyword: "GTA 6"
+  # Sprecher (deutsche Stimme, kostenlos): sagt vor jedem Moment den Platz an
+  voiceover: true
+  voice:
+    intro:
+      - "Die {n} krassesten GTA 6 Momente von heute. Bleibt bis Platz eins!"
+      - "Top {n} GTA 6 Momente des Tages. Platz eins ist unfassbar."
+      - "Das sind die {n} verrücktesten GTA 6 Momente von heute."
+      - "Heute in GTA 6. Die Top {n}. Und Platz eins müsst ihr sehen."
+    rank:
+      - "Platz {rank}: {name}. {context}"
+      - "Auf Platz {rank}: {name}. {context}"
+      - "Platz {rank} geht an {name}. {context}"
+    rank_one:
+      - "Und Platz eins: {name}. {context}"
+      - "Der Gewinner des Tages: {name}. {context}"
+      - "Platz eins. {name}. {context}"
+    contexts:
+      - "Achtet mal auf seine Reaktion."
+      - "Und dann eskaliert alles."
+      - "Das hat er nicht kommen sehen."
+      - "Vice City kennt keine Gnade."
+      - "Genau so spielt man GTA."
+      - "Ohne Worte."
+      - "Das Timing ist einfach perfekt."
+      - "Ich kann nicht mehr."
+      - "Wie ist das bitte passiert?"
+      - "Das muss man gesehen haben."
+  # So spricht die Stimme die Namen aus (Twitch-Login: gesprochener Name)
+  spoken_names:
+    montanablack88: "Monte"
+    papaplatte: "Papaplatte"
+    trymacs: "Trymacs"
+    eliasn97: "Elias"
+    handofblood: "Hand of Blood"
+    mckytv: "McKy"
+    noway4u_sir: "Noway"
+    rewinside: "Rewi"
+    unsympathischtv: "Unsympathisch TV"
+    sidneyeweka: "Sidney"
+    inscope21: "Inscope"
+    letshugotv: "Hugo"
+    zarbex: "Zarbex"
+    rumathra: "Rumathra"
+    xrohat: "Rohat"
+    bastighg: "Basti"
+    herrbergmann: "Herr Bergmann"
   teaser_title: "TOP {n} {game} MOMENTE HEUTE – WARTET AUF #1"
   caption_openers:
     - "Die {game} Momente des Tages 😳 Wartet auf #1…"

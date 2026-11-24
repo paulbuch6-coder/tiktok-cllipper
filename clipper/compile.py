@@ -158,25 +158,63 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
     tmp.mkdir(parents=True, exist_ok=True)
     parts = []
 
-    # Teaser: Ausschnitt aus #1 rund um den Höhepunkt
+    # Sprecher-Texte vorbereiten (kostenlos, Piper TTS)
+    voice_lines: dict[int, Path] = {}
+    if cc.get("voiceover", True):
+        try:
+            from . import voice
+            from .run import good_title
+            line = voice.intro_line(cfg, total)
+            wav = voice.tts(line, tmp / "v_intro.wav")
+            if wav:
+                voice_lines[0] = wav
+                print("🎙 Intro:", line)
+            for rank in range(total, 0, -1):
+                clip = ready[rank - 1][0]
+                t = (clip.get("title") or "").strip()
+                informative = t if good_title(t) and len(t.split()) >= 4 else ""
+                line = voice.rank_line(cfg, rank, clip, informative)
+                wav = voice.tts(line, tmp / f"v_{rank}.wav")
+                if wav:
+                    voice_lines[rank] = wav
+                    print(f"🎙 #{rank}:", line)
+        except Exception as e:
+            print("Sprecher übersprungen:", e)
+            voice_lines = {}
+
+    def with_voice(seg: Path, key: int) -> Path:
+        if key not in voice_lines:
+            return seg
+        from . import voice
+        try:
+            return voice.mix(seg, voice_lines[key], seg.with_name(seg.stem + "_v.mp4"))
+        except Exception as e:
+            print("Sprecher-Mix fehlgeschlagen:", e)
+            return seg
+
+    # Teaser: Ausschnitt aus #1 rund um den Höhepunkt (so lang, dass das Intro reinpasst)
     c1, src1, words1, loud1, _, _ = ready[0]
-    t_start = max(loud1 / 1000 - teaser_len * 0.6, 0)
+    if 0 in voice_lines:
+        from . import voice
+        teaser_len = max(teaser_len, voice.duration(voice_lines[0]) + 0.5)
+    dur1 = video.probe_duration(src1)
+    t_start = min(max(loud1 / 1000 - teaser_len * 0.6, 0), max(dur1 - teaser_len, 0))
     teaser_title = cc.get("teaser_title", "TOP {n} {game} MOMENTE HEUTE – WARTET AUF #1").format(
         n=total, game=cc.get("game_keyword", "GTA 6").upper())
-    parts.append(_segment(cfg, src1, words1, loud1, t_start, teaser_len, teaser_title,
-                          "", tmp / "00_teaser.mp4", captions=False))
+    parts.append(with_voice(_segment(cfg, src1, words1, loud1, t_start, teaser_len, teaser_title,
+                                     "", tmp / "00_teaser.mp4", captions=False), 0))
 
     for rank in range(total, 0, -1):
         clip, src, words, loud_ms, start, length = ready[rank - 1]
         title = f"#{rank} · {clip['broadcaster_name'].upper()}"
-        parts.append(_segment(cfg, src, words, loud_ms, start, length, title,
-                              f"twitch.tv/{clip['broadcaster_name']}",
-                              tmp / f"{10 - rank:02d}_rank{rank}.mp4"))
+        parts.append(with_voice(_segment(cfg, src, words, loud_ms, start, length, title,
+                                         f"twitch.tv/{clip['broadcaster_name']}",
+                                         tmp / f"{10 - rank:02d}_rank{rank}.mp4"), rank))
 
     stamp = dt.datetime.now().strftime("%Y%m%d_%H%M")
     vid_id = f"top{total}_{stamp}"
     final = _concat(parts, OUT / f"{vid_id}.mp4")
-    cover_ms = int(teaser_len * 0.6 * 1000)
+    cover_ms = int(min(teaser_len * 0.6, 1.5) * 1000)
     video.save_cover(final, cover_ms, OUT / f"{vid_id}_thumbnail.jpg")
     secs = video.probe_duration(final)
     caption = build_caption(cfg, [r[0] for r in ready])
