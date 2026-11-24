@@ -93,9 +93,13 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
     block = {s.lower() for s in cfg.get("streamers_blocklist") or []}
     not_before = cfg.get("not_before")
     nb = dt.datetime.fromisoformat(str(not_before)) if not_before else None
+    words_blocked = [re.escape(w) for w in (cfg.get("blocked_title_words") or [])]
+    bad_title = re.compile(r"(" + "|".join(words_blocked) + r")", re.I) if words_blocked else re.compile(r"(?!x)x")
     seen, out = set(), []
     for c in clips:
         if nb and dt.datetime.fromisoformat(c["created_at"].replace("Z", "+00:00")) < nb:
+            continue
+        if bad_title.search(c.get("title") or ""):
             continue
         login = c["broadcaster_name"].lower()
         if (c["id"] in posted_ids or c["id"] in seen or login in block
@@ -409,6 +413,11 @@ def main() -> None:
         work = WORK / clip["id"]
         try:
             src = video.download(clip["url"], work)
+            if cfg.get("nsfw_filter", True):
+                bad, why = video.nsfw_check(src)
+                if bad:
+                    print("⛔ Übersprungen (Nacktheit erkannt):", why)
+                    continue
             mp4, title, cover_ms = produce(cfg, src, clip, clip.get("language"), clip["id"])
             caption = build_caption(cfg, clip, title)
             print("Beschreibung:", caption)

@@ -276,3 +276,37 @@ def render(src: Path, ass: Path | None, out: Path, start: float = 0.0,
     ]
     subprocess.run(cmd, check=True)
     return out
+
+NSFW_CLASSES = {"FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENITALIA_EXPOSED",
+                "BUTTOCKS_EXPOSED", "ANUS_EXPOSED"}
+_nude_detector = None
+
+
+def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.45) -> tuple[bool, str]:
+    """Prüft Stichproben-Frames auf Nacktheit (auch im Spiel – TikTok unterscheidet nicht).
+    Gibt (problematisch?, Begründung) zurück."""
+    global _nude_detector
+    try:
+        from nudenet import NudeDetector
+    except ImportError:
+        return False, "NudeNet nicht installiert"
+    if _nude_detector is None:
+        _nude_detector = NudeDetector()
+    dur = probe_duration(src)
+    tmp = src.parent / "_nsfw"
+    tmp.mkdir(exist_ok=True)
+    try:
+        for i in range(samples):
+            t = dur * (i + 0.5) / samples
+            f = tmp / f"{i}.jpg"
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{t:.2f}", "-i", str(src),
+                            "-frames:v", "1", "-vf", "scale=960:-2", str(f)], check=False)
+            if not f.exists():
+                continue
+            for d in _nude_detector.detect(str(f)):
+                if d.get("class") in NSFW_CLASSES and d.get("score", 0) >= threshold:
+                    return True, f"{d['class']} ({d['score']:.2f}) bei {t:.1f}s"
+    finally:
+        import shutil as _sh
+        _sh.rmtree(tmp, ignore_errors=True)
+    return False, "ok"

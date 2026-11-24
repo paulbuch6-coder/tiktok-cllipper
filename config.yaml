@@ -126,6 +126,14 @@ tiktok_mode: "manual"
 # Sichtbarkeit bei "direct": PUBLIC_TO_EVERYONE (nach Prüfung) oder SELF_ONLY (vor Prüfung)
 privacy_level: "SELF_ONLY"
 
+# ---------- RICHTLINIEN-SCHUTZ ----------
+# Jeder Clip wird vor der Verwendung auf Nacktheit geprüft (auch Spielgrafik!) und
+# bei Treffern übersprungen. TikTok entfernt solche Videos und drosselt den Account.
+nsfw_filter: true
+# Clips mit diesen Wörtern im Twitch-Titel werden gar nicht erst genommen.
+blocked_title_words: ["strip", "nackt", "nude", "titten", "boobs", "brüste", "sex", "porn",
+                      "puff", "bordell", "hure", "nsfw", "18+", "oben ohne", "lapdance", "onlyfans"]
+
 # Split-Layout: Facecam des Streamers wird automatisch erkannt -> groß oben, Gameplay unten.
 # Ohne erkannte Facecam: Standard-Layout (Video mittig, unscharfer Hintergrund).
 split_layout: true

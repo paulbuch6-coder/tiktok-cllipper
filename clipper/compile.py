@@ -128,6 +128,11 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
         work = WORK / clip["id"]
         try:
             src = video.download(clip["url"], work)
+            if cfg.get("nsfw_filter", True):
+                bad, why = video.nsfw_check(src)
+                if bad:
+                    print("⛔ Übersprungen (Nacktheit erkannt):", why)
+                    continue
             dur = video.probe_duration(src)
             words = []
             if cfg.get("captions"):
