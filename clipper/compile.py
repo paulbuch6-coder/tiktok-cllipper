@@ -144,6 +144,10 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
                     print("Untertitel übersprungen:", e)
             loud_ms = video.find_cover_ms(src)
             start, length = plan_cut(seg_cfg, dur, words, loud_ms / 1000)
+            st = video.static_ratio(src, start, length)
+            if st > float(cc.get("max_static_ratio", 0.6)):
+                print(f"⏭ Übersprungen (zu wenig Bewegung – Menü/Ladebildschirm? {st:.0%} Standbild)")
+                continue
             ready.append((clip, src, words, loud_ms, start, length))
         except Exception as e:
             print("Moment übersprungen:", e)

@@ -97,7 +97,8 @@ def find_candidates(cfg: dict, state: list[dict]) -> list[dict]:
     block = {s.lower() for s in cfg.get("streamers_blocklist") or []}
     not_before = cfg.get("not_before")
     nb = dt.datetime.fromisoformat(str(not_before)) if not_before else None
-    words_blocked = [re.escape(w) for w in (cfg.get("blocked_title_words") or [])]
+    words_blocked = [re.escape(w) for w in (cfg.get("blocked_title_words") or [])
+                     + (cfg.get("boring_title_words") or [])]
     bad_title = re.compile(r"(" + "|".join(words_blocked) + r")", re.I) if words_blocked else re.compile(r"(?!x)x")
     seen, out = set(), []
     for c in clips:

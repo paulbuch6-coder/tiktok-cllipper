@@ -215,12 +215,17 @@ def detect_facecam(src: Path, start: float = 0.0, length: float | None = None,
                 boxes.append(near[0])
         if hits > best_hits:
             best, best_hits = boxes, hits
-    if not best or best_hits < max(4, int(n * 0.45)):
+    if not best or best_hits < max(6, int(n * 0.65)):  # streng: Facecam muss fast immer da sein
         return None
     fx, fy, fw, fh = (float(np.median([b[k] for b in best])) for k in range(4))
     cx, cy = fx + fw / 2, fy + fh / 2
     # Facecams sitzen fast immer am Rand; Gesichter mitten im Bild sind meist Spielfiguren
+    # Position wackelt -> eher Spielfigur als feste Facecam
+    if float(np.std([b[0] for b in best])) > sw * 0.015 or float(np.std([b[1] for b in best])) > sh * 0.02:
+        return None
     if 0.3 * sw < cx < 0.7 * sw and 0.25 * sh < cy < 0.75 * sh:
+        return None
+    if fw < sw * 0.025:  # winziges "Gesicht" = meist Fehlerkennung
         return None
     if fw > sw * 0.35:  # riesiges Gesicht = Vollbild-Kamera, kein Overlay
         return None
@@ -323,3 +328,18 @@ def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.35,
         import shutil as _sh
         _sh.rmtree(tmp, ignore_errors=True)
     return False, "ok"
+
+
+def static_ratio(src: Path, start: float = 0.0, length: float | None = None) -> float:
+    """Anteil (fast) unveränderter Frames: hoch = Menü, Ladebildschirm, Standbild."""
+    cmd = ["ffmpeg", "-v", "info", "-ss", f"{start:.2f}"]
+    if length:
+        cmd += ["-t", f"{length:.2f}"]
+    cmd += ["-i", str(src), "-an", "-vf", "scale=320:-2,fps=10,mpdecimate=hi=768:lo=320:frac=0.5",
+            "-f", "null", "-"]
+    err = subprocess.run(cmd, capture_output=True, text=True).stderr
+    kept = re.findall(r"frame=\s*(\d+)", err)
+    total_s = length or (probe_duration(src) - start)
+    total = max(int(total_s * 10), 1)
+    kept_n = int(kept[-1]) if kept else total
+    return max(0.0, 1 - kept_n / total)

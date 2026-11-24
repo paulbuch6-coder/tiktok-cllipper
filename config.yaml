@@ -8,7 +8,8 @@ compilation:
   min_moments: 3             # weniger gefunden -> kein Video
   moment_max_seconds: 15     # Länge pro Moment (um den Höhepunkt herum)
   max_per_streamer: 2        # max. Momente desselben Streamers in einem Video
-  teaser_seconds: 2.0        # Vorschau auf #1 ganz am Anfang
+  teaser_seconds: 2.0
+  max_static_ratio: 0.6      # Momente mit mehr Standbild-Anteil (Menü/Ladebildschirm) fliegen raus
   game_keyword: "GTA 6"
   # Sprecher (deutsche Stimme, kostenlos): sagt vor jedem Moment den Platz an
   voiceover: true
@@ -190,6 +191,10 @@ credit_overlay: false
 # Clips mit diesen Wörtern im Twitch-Titel werden gar nicht erst genommen.
 blocked_title_words: ["strip", "nackt", "nude", "titten", "boobs", "brüste", "sex", "porn",
                       "puff", "bordell", "hure", "nsfw", "18+", "oben ohne", "lapdance", "onlyfans", "stripper", "tänzerin", "twerk", "bikini", "sexy", "lapdance"]
+
+# Lückenfüller-Clips (Start, Menü, Begrüßung) gar nicht erst nehmen:
+boring_title_words: ["startet", "start gta", "intro", "ladebildschirm", "loading", "menü", "menu",
+                     "hallo chat", "begrüßung", "wünscht", "countdown", "warten auf", "pause", "afk"]
 
 # Split-Layout: Facecam des Streamers wird automatisch erkannt -> groß oben, Gameplay unten.
 # Ohne erkannte Facecam: Standard-Layout (Video mittig, unscharfer Hintergrund).
