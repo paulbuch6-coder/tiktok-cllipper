@@ -80,7 +80,10 @@ def notify() -> None:
             pass
         time.sleep(10)
     else:
-        print("Seite noch nicht aktualisiert – sende trotzdem.")
+        print("Seite noch nicht aktualisiert – sende mit Link zum GitHub-Lauf.")
+        run = os.environ.get("GITHUB_RUN_ID")
+        if run:
+            page = f"https://github.com/{repo}/actions/runs/{run}"
 
     topic = _clean_topic(os.environ.get("NTFY_TOPIC") or "")
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", topic or "-invalid-"):

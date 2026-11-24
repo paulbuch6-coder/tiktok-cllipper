@@ -112,6 +112,14 @@ jobs:
         with:
           path: site
       - name: Clip-Seite veröffentlichen
+        id: deploy1
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Kurz warten (GitHub-Störung?)
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 45
+      - name: Clip-Seite veröffentlichen (2. Versuch)
+        if: steps.deploy1.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
       - name: Push aufs Handy
