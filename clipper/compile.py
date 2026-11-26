@@ -116,7 +116,8 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
     n = int(cc.get("moments", 5))
     seg_max = float(cc.get("moment_max_seconds", 15))
     teaser_len = float(cc.get("teaser_seconds", 2.0))
-    picked = _pick(candidates, n + 3, int(cc.get("max_per_streamer", 2)))  # Reserve, falls einer scheitert
+    picked = _pick(candidates, n + int(cc.get("reserve", 10)),
+                   int(cc.get("max_per_streamer", 2)))  # Reserve, falls Momente rausfliegen
     if len(picked) < int(cc.get("min_moments", 3)):
         print(f"Nur {len(picked)} passende Momente – zu wenig für ein Top-Video. Ende.")
         return
@@ -136,23 +137,27 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
                     print("⛔ Übersprungen (Nacktheit erkannt):", why)
                     continue
             dur = video.probe_duration(src)
+            # Schnell-Check VOR den Untertiteln: läuft rund um den Höhepunkt echtes Gameplay?
+            loud_ms = video.find_cover_ms(src)
+            rough_start = max(min(loud_ms / 1000 - seg_max + 8, dur - seg_max), 0)
+            ok, why = video.gameplay_check(src, rough_start, min(seg_max, dur),
+                                           float(cc.get("max_static_ratio", 0.6)),
+                                           float(cc.get("max_big_face_ratio", 0.5)))
+            if not ok:
+                print("⏭ Übersprungen:", why)
+                continue
             words = []
             if cfg.get("captions"):
                 try:
                     words = video.transcribe(src, clip.get("language"), cfg.get("whisper_model", "small"))
                 except Exception as e:
                     print("Untertitel übersprungen:", e)
-            loud_ms = video.find_cover_ms(src)
             start, length = plan_cut(seg_cfg, dur, words, loud_ms / 1000)
-            st = video.static_ratio(src, start, length)
-            if st > float(cc.get("max_static_ratio", 0.6)):
-                print(f"⏭ Übersprungen (zu wenig Bewegung – Menü/Ladebildschirm? {st:.0%} Standbild)")
-                continue
             ready.append((clip, src, words, loud_ms, start, length))
         except Exception as e:
             print("Moment übersprungen:", e)
     if len(ready) < int(cc.get("min_moments", 3)):
-        print("Zu wenige Momente erfolgreich geladen. Ende.")
+        print(f"Nur {len(ready)} gute Momente – kein Video (Qualität vor Menge). Ende.")
         return
 
     # Ranking: stärkster Moment (Platz 1 im Kandidaten-Ranking) wird #1 und kommt zuletzt

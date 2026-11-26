@@ -5,11 +5,13 @@ mode: "compilation"
 
 compilation:
   moments: 5                 # so viele Momente pro Video
-  min_moments: 3             # weniger gefunden -> kein Video
+  min_moments: 5             # Qualität vor Menge: weniger gute Momente -> dieser Termin fällt aus
+  reserve: 10                # so viele Ersatz-Kandidaten werden zusätzlich geprüft
   moment_max_seconds: 15     # Länge pro Moment (um den Höhepunkt herum)
   max_per_streamer: 2        # max. Momente desselben Streamers in einem Video
   teaser_seconds: 2.0
-  max_static_ratio: 0.6      # Momente mit mehr Standbild-Anteil (Menü/Ladebildschirm) fliegen raus
+  max_static_ratio: 0.6      # Spielbild (Bildmitte) zu mehr als 60 % unbewegt -> raus (Menü, Pause, Labern)
+  max_big_face_ratio: 0.5    # großes Gesicht in >50 % der Bilder -> raus (Vollbild-Kamera, nur Labern)
   game_keyword: "GTA 6"
   # Sprecher (deutsche Stimme, kostenlos): sagt vor jedem Moment den Platz an
   voiceover: true

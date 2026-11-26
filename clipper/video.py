@@ -330,12 +330,17 @@ def nsfw_check(src: Path, samples: int = 16, threshold: float = 0.35,
     return False, "ok"
 
 
-def static_ratio(src: Path, start: float = 0.0, length: float | None = None) -> float:
-    """Anteil (fast) unveränderter Frames: hoch = Menü, Ladebildschirm, Standbild."""
+def static_ratio(src: Path, start: float = 0.0, length: float | None = None,
+                 center_only: bool = False) -> float:
+    """Anteil (fast) unveränderter Frames: hoch = Menü, Ladebildschirm, Standbild.
+    center_only: nur die Bildmitte (Gameplay) prüfen – die Facecam in der Ecke
+    bewegt sich sonst immer und täuscht 'Action' vor."""
     cmd = ["ffmpeg", "-v", "info", "-ss", f"{start:.2f}"]
     if length:
         cmd += ["-t", f"{length:.2f}"]
-    cmd += ["-i", str(src), "-an", "-vf", "scale=320:-2,fps=10,mpdecimate=hi=768:lo=320:frac=0.5",
+    crop = "crop=iw*0.5:ih*0.45:iw*0.25:ih*0.2," if center_only else ""
+    cmd += ["-i", str(src), "-an", "-vf",
+            f"{crop}scale=320:-2,fps=10,mpdecimate=hi=768:lo=320:frac=0.5",
             "-f", "null", "-"]
     err = subprocess.run(cmd, capture_output=True, text=True).stderr
     kept = re.findall(r"frame=\s*(\d+)", err)
@@ -343,3 +348,44 @@ def static_ratio(src: Path, start: float = 0.0, length: float | None = None) -> 
     total = max(int(total_s * 10), 1)
     kept_n = int(kept[-1]) if kept else total
     return max(0.0, 1 - kept_n / total)
+
+
+def big_face_ratio(src: Path, start: float = 0.0, length: float | None = None,
+                   samples: int = 10, min_face: float = 0.16) -> float:
+    """Anteil der Frames mit großem Gesicht (Vollbild-Kamera = Streamer redet nur)."""
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        return 0.0
+    if not MODEL.exists():
+        return 0.0
+    dur = length or (probe_duration(src) - start)
+    sw, sh = 640, 360
+    det = cv2.FaceDetectorYN.create(str(MODEL), "", (sw, sh), 0.7, 0.3, 20)
+    hits = n = 0
+    for i in range(samples):
+        t = start + dur * (i + 0.5) / samples
+        raw = subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", str(src), "-frames:v", "1",
+             "-vf", f"scale={sw}:{sh}", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
+            capture_output=True).stdout
+        if len(raw) != sw * sh * 3:
+            continue
+        n += 1
+        _, faces = det.detect(np.frombuffer(raw, np.uint8).reshape(sh, sw, 3))
+        if faces is not None and any(f[2] > sw * min_face for f in faces):
+            hits += 1
+    return hits / n if n else 0.0
+
+
+def gameplay_check(src: Path, start: float, length: float, max_static: float = 0.6,
+                   max_big_face: float = 0.5) -> tuple[bool, str]:
+    """True = echter Gameplay-Moment. False = Menü/Standbild oder Streamer redet nur."""
+    st = static_ratio(src, start, length, center_only=True)
+    if st > max_static:
+        return False, f"kein Gameplay (Spielbild {st:.0%} unbewegt – Menü, Pause oder nur Labern)"
+    bf = big_face_ratio(src, start, length)
+    if bf > max_big_face:
+        return False, f"nur Kamera/Labern (großes Gesicht in {bf:.0%} der Bilder)"
+    return True, "ok"
