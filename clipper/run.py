@@ -366,6 +366,47 @@ def produce(cfg: dict, src: Path, clip: dict, language: str | None,
     return mp4, title, cover_ms
 
 
+def posted_today(state: list[dict]) -> bool:
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Europe/Berlin")
+    today = dt.datetime.now(tz).date()
+    return any(not s.get("dry_run") and
+               dt.datetime.fromisoformat(s["posted_at"]).astimezone(tz).date() == today
+               for s in state)
+
+
+def is_last_slot(cfg: dict) -> bool:
+    from zoneinfo import ZoneInfo
+    hours = cfg.get("post_hours") or [19]
+    return dt.datetime.now(ZoneInfo("Europe/Berlin")).hour >= max(int(h) for h in hours)
+
+
+def run_compilation_with_guarantee(cfg: dict, args, state: list[dict], candidates: list[dict]) -> None:
+    """Top-Video bauen – und am letzten Termin des Tages notfalls Top 3 bzw. Gaming allgemein,
+    damit jeden Tag mindestens ein Video kommt."""
+    import copy
+    from .compile import run_compilation
+    mode = "dry-run" if args.dry_run else cfg.get("tiktok_mode", "manual")
+    fb = (cfg.get("compilation") or {}).get("fallback") or {}
+    guarantee = fb.get("daily_guarantee", True) and is_last_slot(cfg) and not posted_today(state)
+    if guarantee:
+        print("Letzter Termin heute und noch kein Video -> Notfallplan aktiv.")
+    fmin = int(fb.get("min_moments", 3)) if guarantee else None
+    if candidates and run_compilation(cfg, args, state, candidates, mode, fallback_min=fmin):
+        return
+    if not guarantee or not fb.get("gaming_fallback", True):
+        print("Kein Video bei diesem Termin.")
+        return
+    print("\nNotfall: GTA reicht heute nicht -> Top-Video Gaming allgemein.")
+    cfg2 = copy.deepcopy(cfg)
+    cfg2["only_focus_games"] = False
+    cc2 = cfg2.setdefault("compilation", {})
+    cc2.update(fb.get("gaming_overrides") or {})
+    cand2 = find_candidates(cfg2, state)
+    if not cand2 or not run_compilation(cfg2, args, state, cand2, mode, fallback_min=fmin):
+        print("Auch im Notfall nicht genug gute Momente – heute leider kein Video.")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="Nur Videos erstellen, nicht hochladen")
@@ -388,15 +429,14 @@ def main() -> None:
         mark_run()  # Zeitpunkt gilt als erledigt, auch wenn kein Clip gefunden wird
     state = load_state()
     candidates = find_candidates(cfg, state)
+    if cfg.get("mode") == "compilation":
+        run_compilation_with_guarantee(cfg, args, state, candidates)
+        return
     if not candidates:
         print("Kein neuer passender Clip. Ende.")
         return
 
     mode = "dry-run" if args.dry_run else cfg.get("tiktok_mode", "manual")
-    if cfg.get("mode") == "compilation":
-        from .compile import run_compilation
-        run_compilation(cfg, args, state, candidates, mode)
-        return
     token = None
     if mode in ("inbox", "direct"):
         from . import tiktok

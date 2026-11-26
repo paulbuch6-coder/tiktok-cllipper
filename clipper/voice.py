@@ -91,7 +91,8 @@ def _clean(text: str) -> str:
 def intro_line(cfg: dict, n: int) -> str:
     v = (cfg.get("compilation") or {}).get("voice") or {}
     lines = v.get("intro") or ["Die {n} krassesten GTA 6 Momente von heute. Bleibt bis Platz eins!"]
-    return random.choice(lines).format(n=NUM.get(n, n))
+    game = (cfg.get("compilation") or {}).get("game_keyword", "GTA 6")
+    return random.choice(lines).format(n=NUM.get(n, n), game=game)
 
 
 def rank_line(cfg: dict, rank: int, clip: dict, informative_title: str = "") -> str:

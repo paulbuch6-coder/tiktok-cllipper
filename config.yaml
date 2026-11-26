@@ -6,6 +6,17 @@ mode: "compilation"
 compilation:
   moments: 5                 # so viele Momente pro Video
   min_moments: 5             # Qualität vor Menge: weniger gute Momente -> dieser Termin fällt aus
+  # Tages-Garantie: Gab es bis zum letzten Termin (19 Uhr) noch kein Video, dann
+  # 1) Top 3 statt Top 5, 2) notfalls Gaming allgemein statt nur GTA.
+  fallback:
+    daily_guarantee: true
+    min_moments: 3
+    gaming_fallback: true
+    gaming_overrides:
+      game_keyword: "Gaming"
+      teaser_title: "TOP {n} {game} MOMENTE HEUTE – WARTET AUF #1"
+      hashtags_core: ["#gaming"]
+      hashtags_pool: ["#twitchclips", "#twitchdeutschland", "#gamingclips", "#fürdich", "#streamer", "#lustig"]
   reserve: 10                # so viele Ersatz-Kandidaten werden zusätzlich geprüft
   moment_max_seconds: 15     # Länge pro Moment (um den Höhepunkt herum)
   max_per_streamer: 2        # max. Momente desselben Streamers in einem Video
@@ -17,10 +28,10 @@ compilation:
   voiceover: true
   voice:
     intro:
-      - "Die {n} krassesten GTA 6 Momente von heute. Bleibt bis Platz eins!"
-      - "Top {n} GTA 6 Momente des Tages. Platz eins ist unfassbar."
-      - "Das sind die {n} verrücktesten GTA 6 Momente von heute."
-      - "Heute in GTA 6. Die Top {n}. Und Platz eins müsst ihr sehen."
+      - "Die {n} krassesten {game} Momente von heute. Bleibt bis Platz eins!"
+      - "Top {n} {game} Momente des Tages. Platz eins ist unfassbar."
+      - "Das sind die {n} verrücktesten {game} Momente von heute."
+      - "Heute in {game}. Die Top {n}. Und Platz eins müsst ihr sehen."
     rank:
       - "Platz {rank}: {name}. {context}"
       - "Auf Platz {rank}: {name}. {context}"
@@ -33,8 +44,7 @@ compilation:
       - "Achtet mal auf seine Reaktion."
       - "Und dann eskaliert alles."
       - "Das hat er nicht kommen sehen."
-      - "Vice City kennt keine Gnade."
-      - "Genau so spielt man GTA."
+      - "Genau so muss das laufen."
       - "Ohne Worte."
       - "Das Timing ist einfach perfekt."
       - "Ich kann nicht mehr."

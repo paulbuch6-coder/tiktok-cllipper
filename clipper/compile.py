@@ -111,16 +111,21 @@ def build_caption(cfg: dict, moments: list[dict]) -> str:
     ])
 
 
-def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], mode: str) -> None:
+def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], mode: str,
+                    fallback_min: int | None = None) -> bool:
+    """Baut das Top-Video. Gibt True zurück, wenn ein Video entstanden ist.
+    fallback_min: Notfall – auch mit weniger Momenten (z. B. Top 3) ein Video bauen."""
     cc = cfg.get("compilation") or {}
     n = int(cc.get("moments", 5))
     seg_max = float(cc.get("moment_max_seconds", 15))
     teaser_len = float(cc.get("teaser_seconds", 2.0))
     picked = _pick(candidates, n + int(cc.get("reserve", 10)),
                    int(cc.get("max_per_streamer", 2)))  # Reserve, falls Momente rausfliegen
-    if len(picked) < int(cc.get("min_moments", 3)):
-        print(f"Nur {len(picked)} passende Momente – zu wenig für ein Top-Video. Ende.")
-        return
+    need = int(cc.get("min_moments", 3))
+    least = min(need, fallback_min) if fallback_min else need
+    if len(picked) < least:
+        print(f"Nur {len(picked)} passende Kandidaten – zu wenig für ein Top-Video.")
+        return False
 
     seg_cfg = dict(cfg, max_output_seconds=seg_max)
     ready = []  # (clip, src, words, loud_ms, start, length)
@@ -156,9 +161,12 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
             ready.append((clip, src, words, loud_ms, start, length))
         except Exception as e:
             print("Moment übersprungen:", e)
-    if len(ready) < int(cc.get("min_moments", 3)):
-        print(f"Nur {len(ready)} gute Momente – kein Video (Qualität vor Menge). Ende.")
-        return
+    if len(ready) < need:
+        if len(ready) >= least:
+            print(f"Nur {len(ready)} gute Momente – Notfall: Top {len(ready)} statt Top {need}.")
+        else:
+            print(f"Nur {len(ready)} gute Momente – kein Video (Qualität vor Menge).")
+            return False
 
     # Ranking: stärkster Moment (Platz 1 im Kandidaten-Ranking) wird #1 und kommt zuletzt
     total = len(ready)
@@ -248,3 +256,4 @@ def run_compilation(cfg: dict, args, state: list[dict], candidates: list[dict], 
     if not args.dry_run:
         save_state(state)
     shutil.rmtree(WORK, ignore_errors=True)
+    return True
